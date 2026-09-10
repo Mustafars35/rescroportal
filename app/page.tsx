@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity, BarChart3, Box, Boxes, CheckCircle2, ChevronLeft, ChevronRight,
   CircleGauge, ClipboardList, Clock3, Download, Eye, Factory, FileClock,
@@ -15,20 +16,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-type Stage = "Waiting for Mesh"|"Waiting for Frame"|"Waiting for Assembly"|"Quality Control"|"Waiting for Packing"|"Packed"|"Finished";
-type Order = {
-  id:string; customer:string; date:string; store:string; stage:Stage; last:string; eta:string;
-  product:string; color:string; width:number; height:number; direction:"Vertical"|"Horizontal";
-  threshold:string; quantity:number;
-};
+import { orders, stages as flow, type Stage } from "@/lib/orders";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
   "Waiting for Mesh":{color:"#f07b12",soft:"#fff4e8",icon:Clock3},
@@ -40,21 +34,7 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Finished":{color:"#6d28d9",soft:"#f3edff",icon:CheckCircle2},
 };
 
-const orders:Order[] = [
-  {id:"NL101-11072",customer:"Sophie de Vries",date:"10/09/2026",store:".nl",stage:"Waiting for Mesh",last:"-",eta:"Upcoming 4 days",product:"Single screen",color:"White",width:100,height:220,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"DE101-4208",customer:"Lukas Schneider",date:"10/09/2026",store:".de",stage:"Waiting for Frame",last:"Mesh completed",eta:"Upcoming 3 days",product:"Single screen - Pollen",color:"Anthracite",width:118,height:214,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"FR101-1943",customer:"Camille Bernard",date:"09/09/2026",store:".fr",stage:"Waiting for Assembly",last:"Frame completed",eta:"Upcoming 2 days",product:"Double screen",color:"Black",width:196,height:224,direction:"Horizontal",threshold:"35 mm",quantity:1},
-  {id:"NL101-11038",customer:"Daan Jansen",date:"09/09/2026",store:".nl",stage:"Quality Control",last:"Assembly completed",eta:"Upcoming 1 day",product:"Curtain screen",color:"Anthracite",width:182,height:230,direction:"Horizontal",threshold:"35 mm",quantity:2},
-  {id:"ES101-572",customer:"María González",date:"08/09/2026",store:".es",stage:"Waiting for Packing",last:"QC completed",eta:"Today",product:"Single screen",color:"White",width:95,height:205,direction:"Vertical",threshold:"9 mm",quantity:1},
-  {id:"DK101-806",customer:"Freja Nielsen",date:"08/09/2026",store:".dk",stage:"Packed",last:"Packing completed",eta:"Ready",product:"Double screen",color:"RAL 7016",width:210,height:238,direction:"Horizontal",threshold:"35 mm",quantity:1},
-  {id:"UK101-2331",customer:"Oliver Taylor",date:"07/09/2026",store:".uk",stage:"Finished",last:"Manually finished",eta:"-",product:"Single screen",color:"Black",width:103,height:217,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"PL101-481",customer:"Zofia Kowalska",date:"07/09/2026",store:".pl",stage:"Waiting for Mesh",last:"-",eta:"Upcoming 5 days",product:"Curtain screen",color:"White",width:160,height:212,direction:"Horizontal",threshold:"35 mm",quantity:2},
-  {id:"NL101-11021",customer:"Mila Smit",date:"06/09/2026",store:".nl",stage:"Packed",last:"Packing completed",eta:"Ready",product:"Single screen - Pollen",color:"Anthracite",width:112,height:228,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"DE101-4190",customer:"Anna Fischer",date:"06/09/2026",store:".de",stage:"Finished",last:"Manually finished",eta:"-",product:"Single screen",color:"White",width:91,height:198,direction:"Vertical",threshold:"9 mm",quantity:1},
-];
-
 const nav = [[LayoutDashboard,"Dashboard"],[ClipboardList,"Orders"],[Factory,"Production"],[Boxes,"Products"],[UsersRound,"Customers"],[BarChart3,"Reports"],[FileClock,"Audit Logs"],[UserRound,"User Management"],[Settings,"Settings"]] as const;
-const flow:Stage[] = ["Waiting for Mesh","Waiting for Frame","Waiting for Assembly","Quality Control","Waiting for Packing","Packed","Finished"];
 const lastLabel:Record<Stage,string> = {
   "Waiting for Mesh":"Not started yet","Waiting for Frame":"Mesh completed",
   "Waiting for Assembly":"Frame completed","Quality Control":"Assembly completed",
@@ -77,7 +57,7 @@ function StageBadge({stage}:{stage:Stage}) {
 
 export default function Home() {
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all");
-  const [selected,setSelected]=useState<string[]>([]); const [activeOrder,setActiveOrder]=useState<Order|null>(null);
+  const [selected,setSelected]=useState<string[]>([]);
   const filtered=useMemo(()=>orders.filter(o=>
     `${o.id} ${o.customer}`.toLowerCase().includes(query.toLowerCase()) &&
     (store==="all"||o.store===store) && (stage==="all"||o.stage===stage)
@@ -119,7 +99,7 @@ export default function Home() {
         if(typeof orderId!=="string")throw new Error("orderId must be a string");
         const order=orders.find(item=>item.id===orderId);
         if(!order)throw new Error("Order not found");
-        setActiveOrder(order);
+        window.location.assign(`/orders/${encodeURIComponent(order.id)}`);
         return {orderId:order.id,stage:order.stage,product:order.product};
       }
     },{signal:lifecycle.signal})).catch(report);
@@ -149,12 +129,12 @@ export default function Home() {
       </section>
       <Card className="flow-card">
         <div className="section-heading"><div><h2>PRODUCTION FLOW</h2><p>Track orders as they move through the production process</p></div><Activity/></div>
-        <div className="flow">{flow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <div className="flow-step" key={item}>
+        <div className="flow">{flow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${item} orders`}>
           <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<flow.length-1&&<i/>}</div><b>{index+1}</b><strong>{item}</strong><small>{lastLabel[item]}</small>
-        </div>})}</div>
+        </button>})}</div>
         <div className="notice"><ShieldCheck/> Packed orders are not automatically finished. An authorized admin must finish them manually.</div>
       </Card>
-      <Card className="orders-card">
+      <Card className="orders-card" id="orders-table">
         <div className="filters">
           <label><span>Search Order</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by order or customer..."/></div></label>
           <label><span>Store</span><Select value={store} onValueChange={setStore}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stores</SelectItem>{[".nl",".de",".fr",".dk",".uk",".es",".pl"].map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
@@ -168,26 +148,12 @@ export default function Home() {
             <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={`Select ${order.id}`}/></TableCell>
             <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell>
             <TableCell><span className="last-stage" style={{"--dot":stageConfig[order.stage].color} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{order.eta}</Badge></TableCell>
-            <TableCell><div className="row-actions"><Button variant="outline" size="sm" onClick={()=>setActiveOrder(order)}><Eye/> View</Button><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
+            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
         </Table>{filtered.length===0&&<div className="empty"><Search/><b>No orders found</b><span>Try changing your search or filters.</span></div>}</div>
         <footer className="pagination"><span>Showing {filtered.length} of {orders.length} orders</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>
       </Card>
     </main></SidebarInset>
 
-    <Sheet open={!!activeOrder} onOpenChange={open=>!open&&setActiveOrder(null)}><SheetContent className="order-sheet sm:max-w-[520px]">
-      {activeOrder&&<><SheetHeader><div className="sheet-kicker">ORDER DETAIL</div><SheetTitle>{activeOrder.id}</SheetTitle><SheetDescription>{activeOrder.customer} · {activeOrder.store}</SheetDescription></SheetHeader>
-        <div className="sheet-body"><StageBadge stage={activeOrder.stage}/>
-          <section><h3>Product</h3><dl><div><dt>Product type</dt><dd>{activeOrder.product}</dd></div><div><dt>Quantity</dt><dd>{activeOrder.quantity}</dd></div><div><dt>Frame color</dt><dd>{activeOrder.color}</dd></div><div><dt>Direction</dt><dd>{activeOrder.direction}</dd></div><div><dt>Threshold</dt><dd>{activeOrder.threshold}</dd></div></dl></section>
-          <section><h3>Customer measurements</h3><div className="measurement"><span><small>WIDTH</small><b>{activeOrder.width} cm</b></span><span>×</span><span><small>HEIGHT</small><b>{activeOrder.height} cm</b></span></div></section>
-          <section><h3>Calculated production values</h3><dl>
-            <div><dt>Pile count</dt><dd>{Math.round((activeOrder.direction==="Vertical"?activeOrder.height:activeOrder.width)/(activeOrder.product.includes("Double")?4:2)+(activeOrder.product.includes("Double")?0:5))}</dd></div>
-            <div><dt>Channel frame</dt><dd>{(activeOrder.direction==="Vertical"?activeOrder.width-7:activeOrder.height-7).toFixed(1)} cm</dd></div>
-            <div><dt>Channelless frame</dt><dd>{(activeOrder.direction==="Vertical"?activeOrder.height-7:activeOrder.width-7).toFixed(1)} cm</dd></div>
-            <div><dt>Cord length</dt><dd>{activeOrder.width+activeOrder.height+20} cm</dd></div>
-          </dl></section>
-        </div>
-      </>}
-    </SheetContent></Sheet>
   </SidebarProvider>;
 }
