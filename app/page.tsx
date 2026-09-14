@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Activity, BarChart3, Box, Boxes, CheckCircle2, ChevronLeft, ChevronRight,
   CircleGauge, ClipboardList, Clock3, Download, Eye, Factory, FileClock,
@@ -35,7 +36,7 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Finished":{color:"#6d28d9",soft:"#f3edff",icon:CheckCircle2},
 };
 
-const nav = [[LayoutDashboard,"Dashboard","/"],[ClipboardList,"Orders","/"],[Factory,"Production","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Boxes,"Products","/"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/"],[UserRound,"User Management","/"],[Settings,"Settings","/"]] as const;
+const nav = [[LayoutDashboard,"Dashboard","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/"],[UserRound,"User Management","/"],[Settings,"Settings","/"]] as const;
 const lastLabel:Record<Stage,string> = {
   "Waiting for Mesh":"Not started yet","Cord & Eyelet":"Mesh completed","Waiting for Frame":"Cord & Eyelet completed",
   "Waiting for Assembly":"Frame completed","Quality Control":"Assembly completed",
@@ -113,9 +114,9 @@ export default function Home() {
 
   return <SidebarProvider style={{"--sidebar-width":"13.2rem"} as React.CSSProperties}>
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
-      <SidebarHeader className="brand"><span>RESCRO</span></SidebarHeader>
+      <SidebarHeader className="brand"><Link href="/"><Image src="/rescro-logo.png" alt="RESCRO" width={166} height={52} priority/></Link></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Orders"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
       <SidebarFooter><button className="profile"><span><UserRound/></span><span><b>Admin</b><small>Super Admin</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
