@@ -1,0 +1,6 @@
+import { Card } from "@/components/ui/card";
+import { LegacyShell } from "@/components/legacy-shell";
+import { Flow } from "@/components/factory-ui";
+import { orders } from "@/lib/orders";
+const kpis=[["Today’s Target","220"],["Produced Today","164"],["Orders In Production",String(orders.filter(o=>!['Finished','Waiting for Mesh'].includes(o.stage)).length)],["Delayed Orders",String(orders.filter(o=>o.risk==='Delayed').length)],["Orders At Risk",String(orders.filter(o=>o.risk==='Risk').length)],["QC Problems","6"],["Waiting for Packing",String(orders.filter(o=>o.stage==='Waiting for Packing').length)],["Finished Today","164"],["Next Shipment","16:30"]];
+export default function FactoryControl(){return <LegacyShell><section className="page-heading"><span>FACTORY CONTROL CENTER</span><h1>Factory status at a glance</h1></section><section className="control-grid">{kpis.map(([label,value])=><Card className="control-metric" key={label}><span>{label}</span><strong>{value}</strong></Card>)}</section><Card className="flow-card live-production-card"><div className="section-heading"><div><h2>LIVE PRODUCTION FLOW</h2><p>Current work-in-progress by station</p></div></div><Flow/></Card></LegacyShell>}

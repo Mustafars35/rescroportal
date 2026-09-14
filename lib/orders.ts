@@ -1,52 +1,15 @@
-export type Stage =
-  | "Waiting for Mesh"
-  | "Waiting for Frame"
-  | "Waiting for Assembly"
-  | "Quality Control"
-  | "Waiting for Packing"
-  | "Packed"
-  | "Finished";
+export type Stage = "Waiting for Mesh" | "Cord & Eyelet" | "Waiting for Frame" | "Waiting for Assembly" | "Quality Control" | "Waiting for Packing" | "Packed" | "Finished";
+export type RiskLevel = "Normal" | "Risk" | "Delayed";
+export type Order = { id:string; customer:string; date:string; store:string; stage:Stage; last:string; eta:string; product:string; color:string; width:number; height:number; direction:"Vertical"|"Horizontal"; threshold:string; quantity:number; ageDays:number; risk:RiskLevel };
 
-export type Order = {
-  id: string;
-  customer: string;
-  date: string;
-  store: string;
-  stage: Stage;
-  last: string;
-  eta: string;
-  product: string;
-  color: string;
-  width: number;
-  height: number;
-  direction: "Vertical" | "Horizontal";
-  threshold: string;
-  quantity: number;
-};
-
-export const stages: Stage[] = [
-  "Waiting for Mesh",
-  "Waiting for Frame",
-  "Waiting for Assembly",
-  "Quality Control",
-  "Waiting for Packing",
-  "Packed",
-  "Finished",
-];
-
-export const orders: Order[] = [
-  {id:"NL101-11072",customer:"Sophie de Vries",date:"10/09/2026",store:".nl",stage:"Waiting for Mesh",last:"-",eta:"Upcoming 4 days",product:"Single screen",color:"White",width:100,height:220,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"DE101-4208",customer:"Lukas Schneider",date:"10/09/2026",store:".de",stage:"Waiting for Frame",last:"Mesh completed",eta:"Upcoming 3 days",product:"Single screen - Pollen",color:"Anthracite",width:118,height:214,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"FR101-1943",customer:"Camille Bernard",date:"09/09/2026",store:".fr",stage:"Waiting for Assembly",last:"Frame completed",eta:"Upcoming 2 days",product:"Double screen",color:"Black",width:196,height:224,direction:"Horizontal",threshold:"35 mm",quantity:1},
-  {id:"NL101-11038",customer:"Daan Jansen",date:"09/09/2026",store:".nl",stage:"Quality Control",last:"Assembly completed",eta:"Upcoming 1 day",product:"Curtain screen",color:"Anthracite",width:182,height:230,direction:"Horizontal",threshold:"35 mm",quantity:2},
-  {id:"ES101-572",customer:"María González",date:"08/09/2026",store:".es",stage:"Waiting for Packing",last:"QC completed",eta:"Today",product:"Single screen",color:"White",width:95,height:205,direction:"Vertical",threshold:"9 mm",quantity:1},
-  {id:"DK101-806",customer:"Freja Nielsen",date:"08/09/2026",store:".dk",stage:"Packed",last:"Packing completed",eta:"Ready",product:"Double screen",color:"RAL 7016",width:210,height:238,direction:"Horizontal",threshold:"35 mm",quantity:1},
-  {id:"UK101-2331",customer:"Oliver Taylor",date:"07/09/2026",store:".uk",stage:"Finished",last:"Manually finished",eta:"-",product:"Single screen",color:"Black",width:103,height:217,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"PL101-481",customer:"Zofia Kowalska",date:"07/09/2026",store:".pl",stage:"Waiting for Mesh",last:"-",eta:"Upcoming 5 days",product:"Curtain screen",color:"White",width:160,height:212,direction:"Horizontal",threshold:"35 mm",quantity:2},
-  {id:"NL101-11021",customer:"Mila Smit",date:"06/09/2026",store:".nl",stage:"Packed",last:"Packing completed",eta:"Ready",product:"Single screen - Pollen",color:"Anthracite",width:112,height:228,direction:"Vertical",threshold:"None",quantity:1},
-  {id:"DE101-4190",customer:"Anna Fischer",date:"06/09/2026",store:".de",stage:"Finished",last:"Manually finished",eta:"-",product:"Single screen",color:"White",width:91,height:198,direction:"Vertical",threshold:"9 mm",quantity:1},
-];
-
-export function getOrder(orderId: string) {
-  return orders.find((order) => order.id === decodeURIComponent(orderId));
-}
+export const stages:Stage[] = ["Waiting for Mesh","Cord & Eyelet","Waiting for Frame","Waiting for Assembly","Quality Control","Waiting for Packing","Packed","Finished"];
+const customers=["Sophie de Vries","Lukas Schneider","Camille Bernard","Daan Jansen","María González","Freja Nielsen","Oliver Taylor","Zofia Kowalska","Mila Smit","Anna Fischer","Bianca Karte","Stefan Müller","Elise Dubois","John Smith","Lars Jansen","Emma Visser"];
+const products=["Single screen","Single screen - Pollen","Double screen","Curtain screen"];
+const colors=["White","Anthracite","Black","RAL 7016","Light Grey"];
+const stores=[".nl",".de",".fr",".dk",".uk",".es",".pl"];
+const prefixes:Record<string,string>={".nl":"NL",".de":"DE",".fr":"FR",".dk":"DK",".uk":"UK",".es":"ES",".pl":"PL"};
+const last:Record<Stage,string>={"Waiting for Mesh":"-","Cord & Eyelet":"Mesh completed","Waiting for Frame":"Cord & Eyelet completed","Waiting for Assembly":"Frame completed","Quality Control":"Assembly completed","Waiting for Packing":"QC completed",Packed:"Packing completed",Finished:"Manually finished"};
+function dateFor(ageDays:number){const d=new Date(Date.UTC(2026,8,14));d.setUTCDate(d.getUTCDate()-ageDays);return d.toLocaleDateString("en-GB",{timeZone:"UTC"});}
+function makeOrder(index:number):Order{const store=stores[index%stores.length];const stage=stages[(index*5+Math.floor(index/7))%stages.length];const ageDays=1+(index*7)%29;const risk:RiskLevel=stage==="Finished"?"Normal":ageDays>=22?"Delayed":ageDays>=14?"Risk":"Normal";const product=products[index%products.length];const width=88+(index*11)%135;const height=195+(index*13)%55;return {id:`${prefixes[store]}101-${11072-index*3}`,customer:customers[index%customers.length],date:dateFor(ageDays),store,stage,last:last[stage],eta:stage==="Finished"?"-":stage==="Packed"?"Ready":risk==="Delayed"?"Overdue":`Upcoming ${1+index%5} days`,product,color:colors[index%colors.length],width,height,direction:index%3?"Vertical":"Horizontal",threshold:index%4===0?"35 mm":index%7===0?"9 mm":"None",quantity:index%6===0?2:1,ageDays,risk};}
+export const orders:Order[]=Array.from({length:128},(_,index)=>makeOrder(index));
+export function getOrder(orderId:string){return orders.find(order=>order.id===decodeURIComponent(orderId));}

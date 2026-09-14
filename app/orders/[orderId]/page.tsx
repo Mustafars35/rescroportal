@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, Box, Check, CheckCircle2, Clock3, Frame, Hammer,
-  PackageCheck, Pencil, ShieldCheck, Trash2,
+  PackageCheck, Pencil, ShieldCheck, Trash2, Grid3X3, Link2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getOrder, stages, type Stage } from "@/lib/orders";
 
 const stageMeta: Record<Stage, { color: string; soft: string; icon: typeof Clock3 }> = {
-  "Waiting for Mesh": { color: "#f07b12", soft: "#fff4e8", icon: Clock3 },
+  "Waiting for Mesh": { color: "#f07b12", soft: "#fff4e8", icon: Grid3X3 },
+  "Cord & Eyelet": { color: "#7c3aed", soft: "#f3edff", icon: Link2 },
   "Waiting for Frame": { color: "#7338e6", soft: "#f3edff", icon: Frame },
   "Waiting for Assembly": { color: "#1769e0", soft: "#edf5ff", icon: Hammer },
   "Quality Control": { color: "#0a958f", soft: "#e9fbf8", icon: ShieldCheck },
@@ -66,7 +67,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
       <article className="order-item-card">
         <header className="item-card-header">
           <div><span className="item-number">1</span><div><h2>Item 1</h2><p>{order.product}</p></div></div>
-          <div className="item-progress-copy"><strong>{Math.max(activeIndex, 0)}/7 stages completed</strong><span><i style={{width:`${Math.max(activeIndex,0)/7*100}%`}}/></span></div>
+          <div className="item-progress-copy"><strong>{Math.max(activeIndex, 0)}/{stages.length} stages completed</strong><span><i style={{width:`${Math.max(activeIndex,0)/stages.length*100}%`}}/></span></div>
         </header>
 
         <div className="item-flow">

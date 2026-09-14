@@ -7,7 +7,7 @@ import {
   CircleGauge, ClipboardList, Clock3, Download, Eye, Factory, FileClock,
   FileSpreadsheet, Filter, Frame, Globe2, Hammer, LayoutDashboard, Menu,
   MoreHorizontal, PackageCheck, Plus, RefreshCw, Search, Settings,
-  ShieldCheck, UserRound, UsersRound,
+  ShieldCheck, UserRound, UsersRound, Grid3X3, Link2, PackageOpen, Wrench, Warehouse, Truck, Gauge,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { orders, stages as flow, type Stage } from "@/lib/orders";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
-  "Waiting for Mesh":{color:"#f07b12",soft:"#fff4e8",icon:Clock3},
+  "Waiting for Mesh":{color:"#f07b12",soft:"#fff4e8",icon:Grid3X3},
+  "Cord & Eyelet":{color:"#7c3aed",soft:"#f3edff",icon:Link2},
   "Waiting for Frame":{color:"#7338e6",soft:"#f3edff",icon:Frame},
   "Waiting for Assembly":{color:"#1769e0",soft:"#edf5ff",icon:Hammer},
   "Quality Control":{color:"#0a958f",soft:"#e9fbf8",icon:ShieldCheck},
@@ -34,9 +35,9 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Finished":{color:"#6d28d9",soft:"#f3edff",icon:CheckCircle2},
 };
 
-const nav = [[LayoutDashboard,"Dashboard"],[ClipboardList,"Orders"],[Factory,"Production"],[Boxes,"Products"],[UsersRound,"Customers"],[BarChart3,"Reports"],[FileClock,"Audit Logs"],[UserRound,"User Management"],[Settings,"Settings"]] as const;
+const nav = [[LayoutDashboard,"Dashboard","/"],[ClipboardList,"Orders","/"],[Factory,"Production","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Boxes,"Products","/"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/"],[UserRound,"User Management","/"],[Settings,"Settings","/"]] as const;
 const lastLabel:Record<Stage,string> = {
-  "Waiting for Mesh":"Not started yet","Waiting for Frame":"Mesh completed",
+  "Waiting for Mesh":"Not started yet","Cord & Eyelet":"Mesh completed","Waiting for Frame":"Cord & Eyelet completed",
   "Waiting for Assembly":"Frame completed","Quality Control":"Assembly completed",
   "Waiting for Packing":"QC completed",Packed:"Packed & ready",Finished:"Manually finished by admin",
 };
@@ -55,6 +56,8 @@ function StageBadge({stage}:{stage:Stage}) {
   return <Badge className="stage-badge" style={{color:config.color,background:config.soft}}><Icon/>{stage}</Badge>;
 }
 
+function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge className={`risk-badge ${risk.toLowerCase()}`}><i/>{risk}</Badge>; }
+
 export default function Home() {
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all");
   const [selected,setSelected]=useState<string[]>([]);
@@ -67,6 +70,8 @@ export default function Home() {
   const production=orders.length-finished-notStarted; const pct=(v:number)=>v/orders.length*100;
   const allSelected=filtered.length>0&&filtered.every(o=>selected.includes(o.id));
   const toggleAll=()=>setSelected(allSelected?selected.filter(id=>!filtered.some(o=>o.id===id)):Array.from(new Set([...selected,...filtered.map(o=>o.id)])));
+
+  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("stage");if(requested && flow.includes(requested as Stage))setStage(requested);},[]);
 
   useEffect(()=>{
     const context=(document as Document & {modelContext?:{registerTool:(tool:unknown,options?:{signal?:AbortSignal})=>void|Promise<void>}}).modelContext;
@@ -110,7 +115,7 @@ export default function Home() {
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
       <SidebarHeader className="brand"><span>RESCRO</span></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.map(([Icon,label])=><SidebarMenuItem key={label}><SidebarMenuButton isActive={label==="Orders"} tooltip={label}><Icon/><span>{label}</span></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Orders"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
       <SidebarFooter><button className="profile"><span><UserRound/></span><span><b>Admin</b><small>Super Admin</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
@@ -143,10 +148,10 @@ export default function Home() {
           <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all")}}><RefreshCw/> Reset</Button>
         </div>
         <div className="table-wrap"><Table>
-          <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all visible orders"/></TableHead><TableHead>Order Number</TableHead><TableHead>Customer</TableHead><TableHead>Order Date</TableHead><TableHead>Store</TableHead><TableHead>Status / Stage</TableHead><TableHead>Last Completed Stage</TableHead><TableHead>ETA</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all visible orders"/></TableHead><TableHead>Order Number</TableHead><TableHead>Customer</TableHead><TableHead>Order Date</TableHead><TableHead>Store</TableHead><TableHead>Status / Stage</TableHead><TableHead>Risk</TableHead><TableHead>Last Completed Stage</TableHead><TableHead>ETA</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
           <TableBody>{filtered.map(order=><TableRow key={order.id} data-state={selected.includes(order.id)?"selected":undefined}>
             <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={`Select ${order.id}`}/></TableCell>
-            <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell>
+            <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell><TableCell><RiskBadge risk={order.risk}/></TableCell>
             <TableCell><span className="last-stage" style={{"--dot":stageConfig[order.stage].color} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{order.eta}</Badge></TableCell>
             <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`} target="_blank" rel="noreferrer"><Eye/> View Order</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
