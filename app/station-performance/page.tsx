@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, ChevronDown, ChevronUp, Clock3, Layers3, UsersRound } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronUp, PackageCheck, UsersRound } from "lucide-react";
 import { LegacyShell } from "@/components/legacy-shell";
 import { config } from "@/components/factory-ui";
 import { stages, type Stage } from "@/lib/orders";
@@ -24,8 +24,7 @@ export default function StationPerformance(){
   const periodSeed=period==="day"?Number(date.slice(-2)):period==="month"?Number(month.slice(-2))+17:Number(start.slice(-2))+Number(end.slice(-2));
   const multiplier=period==="day"?1:period==="month"?22:12;
   const data=useMemo(()=>stages.map((stage,index)=>{const base=245-index*9+(periodSeed+index)%9;const completed=base*multiplier;const queue=[18,24,16,31,14,37,11,4][index];return {stage,completed,queue,processing:`${17+index*3} min`,status:queue>30?"Queue building":"On track"};}),[periodSeed,multiplier]);
-  const total=data.reduce((sum,item)=>sum+item.completed,0);
-  const average=Math.round(total/data.length);
+  const packed=data.find(item=>item.stage==="Packed")?.completed??0;
   const label=periodLabel(period,date,month,start,end);
 
   return <LegacyShell><div className="performance-reference-view">
@@ -41,9 +40,7 @@ export default function StationPerformance(){
 
     <section className="performance-kpis">
       <article><i><CalendarDays/></i><div><b>Selected period</b><strong>{label}</strong><small>Performance report</small></div></article>
-      <article><i><Layers3/></i><div><b>Total completed</b><strong>{total.toLocaleString("en-GB")}</strong><small>All stations combined</small></div><em/></article>
-      <article><i><UsersRound/></i><div><b>Active stations</b><strong>{stages.length}</strong><small>Production stations</small></div><em/></article>
-      <article><i><Clock3/></i><div><b>Average station output</b><strong>{average.toLocaleString("en-GB")}</strong><small>Completed items</small></div><em/></article>
+      <article><i><PackageCheck/></i><div><b>Packed output</b><strong>{packed.toLocaleString("en-GB")}</strong><small>Packed items</small></div><em/></article>
     </section>
 
     <section className="performance-panel">
