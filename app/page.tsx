@@ -60,19 +60,19 @@ function StageBadge({stage}:{stage:Stage}) {
 function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge className={`risk-badge ${risk.toLowerCase()}`}><i/>{risk}</Badge>; }
 
 export default function Home() {
-  const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all");
+  const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all"); const [productionOnly,setProductionOnly]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const filtered=useMemo(()=>orders.filter(o=>
     `${o.id} ${o.customer}`.toLowerCase().includes(query.toLowerCase()) &&
-    (store==="all"||o.store===store) && (stage==="all"||o.stage===stage)
-  ),[query,store,stage]);
+    (store==="all"||o.store===store) && (stage==="all"||o.stage===stage) && (!productionOnly || !["Waiting for Mesh","Finished"].includes(o.stage))
+  ),[query,store,stage,productionOnly]);
   const finished=orders.filter(o=>o.stage==="Finished").length;
   const notStarted=orders.filter(o=>o.stage==="Waiting for Mesh").length;
   const production=orders.length-finished-notStarted; const pct=(v:number)=>v/orders.length*100;
   const allSelected=filtered.length>0&&filtered.every(o=>selected.includes(o.id));
   const toggleAll=()=>setSelected(allSelected?selected.filter(id=>!filtered.some(o=>o.id===id)):Array.from(new Set([...selected,...filtered.map(o=>o.id)])));
 
-  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("stage");if(requested && flow.includes(requested as Stage))setStage(requested);},[]);
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get("stage");if(requested && flow.includes(requested as Stage))setStage(requested);if(params.get("view")==="in-production")setProductionOnly(true);if(params.has("stage")||params.get("view")){requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}));}},[]);
 
   useEffect(()=>{
     const context=(document as Document & {modelContext?:{registerTool:(tool:unknown,options?:{signal?:AbortSignal})=>void|Promise<void>}}).modelContext;
