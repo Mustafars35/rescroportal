@@ -13,12 +13,13 @@ export default function LiveProduction(){
   const inProduction=orders.filter(order=>!['Finished','Waiting for Mesh'].includes(order.stage)).length;
   const progress=Math.round((produced/target)*100);
   const today=new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"long",year:"numeric"}).format(new Date());
+  const weekday=new Intl.DateTimeFormat("en-GB",{weekday:"long"}).format(new Date());
   const lastUpdated=new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
 
   return <LegacyShell>
     <section className="live-heading">
       <div className="page-heading"><span>LIVE PRODUCTION</span><h1>Factory Status</h1><p>Real-time overview of today&apos;s production progress.</p></div>
-      <div className="live-meta"><div><CalendarDays/><span><b>{today}</b><small>Today</small></span></div><div><RefreshCw/><span><b>Last updated</b><small>{lastUpdated}</small></span></div></div>
+      <div className="live-meta"><div><CalendarDays/><span><b>{today}</b><small>{weekday}</small></span></div><div><RefreshCw/><span><b>Last updated</b><small>{lastUpdated}</small></span></div></div>
     </section>
     <section className="live-summary">
       <Card className="live-kpi"><Target/><div><span>Daily Target</span><strong>{target}</strong><small>orders planned for today</small></div></Card>
