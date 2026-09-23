@@ -26,14 +26,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { orders, stages as flow, type Stage } from "@/lib/orders";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
-  "Waiting for Mesh":{color:"#c93535",soft:"#fff0f0",icon:Grid3X3},
-  "Cord & Eyelet":{color:"#d9771d",soft:"#fff5e8",icon:Link2},
-  "Waiting for Frame":{color:"#b68d10",soft:"#fff9e5",icon:Frame},
-  "Waiting for Assembly":{color:"#3f875b",soft:"#edf8f0",icon:Hammer},
-  "Quality Control":{color:"#356ca8",soft:"#edf4fc",icon:ShieldCheck},
-  "Waiting for Packing":{color:"#7655a4",soft:"#f4effa",icon:Box},
-  "Packed":{color:"#b45483",soft:"#fceff5",icon:PackageCheck},
-  "Finished":{color:"#cf6b99",soft:"#fff0f6",icon:CheckCircle2},
+  "Waiting for Mesh":{color:"#C00000",soft:"#ffffff",icon:Grid3X3},
+  "Cord & Eyelet":{color:"#ED7D31",soft:"#ffffff",icon:Link2},
+  "Waiting for Frame":{color:"#C99A00",soft:"#ffffff",icon:Frame},
+  "Waiting for Assembly":{color:"#70AD47",soft:"#ffffff",icon:Hammer},
+  "Quality Control":{color:"#5B9BD5",soft:"#ffffff",icon:ShieldCheck},
+  "Waiting for Packing":{color:"#4472C4",soft:"#ffffff",icon:Box},
+  "Packed":{color:"#7030A0",soft:"#ffffff",icon:PackageCheck},
+  "Finished":{color:"#C55A8C",soft:"#ffffff",icon:CheckCircle2},
 };
 
 const nav = [[LayoutDashboard,"Dashboard","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/"],[UserRound,"User Management","/"],[Settings,"Settings","/"]] as const;
