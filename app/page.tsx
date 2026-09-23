@@ -26,14 +26,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { orders, stages as flow, type Stage } from "@/lib/orders";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
-  "Waiting for Mesh":{color:"#f07b12",soft:"#fff4e8",icon:Grid3X3},
-  "Cord & Eyelet":{color:"#7c3aed",soft:"#f3edff",icon:Link2},
-  "Waiting for Frame":{color:"#7338e6",soft:"#f3edff",icon:Frame},
-  "Waiting for Assembly":{color:"#1769e0",soft:"#edf5ff",icon:Hammer},
-  "Quality Control":{color:"#0a958f",soft:"#e9fbf8",icon:ShieldCheck},
-  "Waiting for Packing":{color:"#e87512",soft:"#fff3e8",icon:Box},
-  "Packed":{color:"#16a34a",soft:"#eaf9ef",icon:PackageCheck},
-  "Finished":{color:"#6d28d9",soft:"#f3edff",icon:CheckCircle2},
+  "Waiting for Mesh":{color:"#c93535",soft:"#fff0f0",icon:Grid3X3},
+  "Cord & Eyelet":{color:"#d9771d",soft:"#fff5e8",icon:Link2},
+  "Waiting for Frame":{color:"#b68d10",soft:"#fff9e5",icon:Frame},
+  "Waiting for Assembly":{color:"#3f875b",soft:"#edf8f0",icon:Hammer},
+  "Quality Control":{color:"#356ca8",soft:"#edf4fc",icon:ShieldCheck},
+  "Waiting for Packing":{color:"#7655a4",soft:"#f4effa",icon:Box},
+  "Packed":{color:"#b45483",soft:"#fceff5",icon:PackageCheck},
+  "Finished":{color:"#cf6b99",soft:"#fff0f6",icon:CheckCircle2},
 };
 
 const nav = [[LayoutDashboard,"Dashboard","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/"],[UserRound,"User Management","/"],[Settings,"Settings","/"]] as const;
@@ -128,10 +128,10 @@ export default function Home() {
       </header>
       <section className="export-row">{selected.length>0&&<span className="selected-count">{selected.length} order{selected.length>1?"s":""} selected</span>}<Button variant="outline"><FileSpreadsheet/> Export Excel</Button><Button variant="outline"><Download/> Export Customs</Button><Button variant="outline"><Download/> Export PDF</Button></section>
       <section className="metrics">
-        <MetricCard label="TOTAL ORDERS" value={orders.length} hint="All orders in system" percent={pct(finished)} color="#6d28d9" icon={Box}/>
-        <MetricCard label="NOT STARTED ORDERS" value={notStarted} hint="Waiting for Mesh" percent={pct(notStarted)} color="#f07b12" icon={Clock3}/>
-        <MetricCard label="ORDERS IN PRODUCTION" value={production} hint="Including Packed" percent={pct(production)} color="#1769e0" icon={CircleGauge}/>
-        <MetricCard label="FINISHED ORDERS" value={finished} hint="Manually finished" percent={pct(finished)} color="#16a34a" icon={CheckCircle2}/>
+        <MetricCard label="TOTAL ORDERS" value={orders.length} hint="All orders in system" percent={pct(finished)} color="#161616" icon={Box}/>
+        <MetricCard label="NOT STARTED ORDERS" value={notStarted} hint="Waiting for Mesh" percent={pct(notStarted)} color="#353535" icon={Clock3}/>
+        <MetricCard label="ORDERS IN PRODUCTION" value={production} hint="Including Packed" percent={pct(production)} color="#515151" icon={CircleGauge}/>
+        <MetricCard label="FINISHED ORDERS" value={finished} hint="Manually finished" percent={pct(finished)} color="#707070" icon={CheckCircle2}/>
       </section>
       <Card className="flow-card">
         <div className="section-heading"><div><h2>PRODUCTION FLOW</h2><p>Track orders as they move through the production process</p></div><Activity/></div>
