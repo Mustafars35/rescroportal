@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { orders, stages as flow, type Stage } from "@/lib/orders";
-import { readReleasedIds } from "@/lib/release";
+import { readReleasedIds, readReleasedProductionOrders } from "@/lib/release";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
   "Waiting for Mesh":{color:"#C00000",soft:"#ffffff",icon:Grid3X3},
@@ -65,7 +65,7 @@ export default function Home() {
   const [releasedIds,setReleasedIds]=useState(()=>new Set<string>());
   const [selected,setSelected]=useState<string[]>([]);
   useEffect(()=>{const sync=()=>setReleasedIds(readReleasedIds());sync();window.addEventListener("rescro-release-updated",sync);return()=>window.removeEventListener("rescro-release-updated",sync)},[]);
-  const productionOrders=useMemo(()=>orders.filter(order=>releasedIds.has(order.id)),[releasedIds]);
+  const productionOrders=useMemo(()=>readReleasedProductionOrders(),[releasedIds]);
   const filtered=useMemo(()=>productionOrders.filter(o=>
     `${o.id} ${o.customer}`.toLowerCase().includes(query.toLowerCase()) &&
     (store==="all"||o.store===store) && (stage==="all"||o.stage===stage) && (!productionOnly || !["Waiting for Mesh","Finished"].includes(o.stage))
