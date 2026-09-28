@@ -8,13 +8,12 @@ import { stages } from "@/lib/orders";
 
 export default function ProductionOverview(){
   const [date,setDate]=useState("2026-09-14");
-  const seed=useMemo(()=>Number(date.slice(-2))||14,[date]);
-  const values=stages.map((stage,index)=>({stage,value:Math.max(86,164-index*9+(seed+index*3)%12)}));
+  const values=stages.map(stage=>({stage,value:0}));
   const finished=values.find(item=>item.stage==="Finished")?.value??0;
   const entering=values[0]?.value??0;
   const average=Math.round(values.reduce((sum,item)=>sum+item.value,0)/values.length);
   const formattedDate=date.split("-").reverse().join("/");
-  const maximum=Math.max(...values.map(item=>item.value));
+  const maximum=Math.max(1,...values.map(item=>item.value));
 
   return <LegacyShell><div className="overview-reference-view">
     <header className="overview-reference-top">

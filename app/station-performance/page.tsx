@@ -21,9 +21,7 @@ export default function StationPerformance(){
   const [start,setStart]=useState("2026-09-01");
   const [end,setEnd]=useState("2026-09-23");
   const [expanded,setExpanded]=useState<Stage|null>(null);
-  const periodSeed=period==="day"?Number(date.slice(-2)):period==="month"?Number(month.slice(-2))+17:Number(start.slice(-2))+Number(end.slice(-2));
-  const multiplier=period==="day"?1:period==="month"?22:12;
-  const data=useMemo(()=>stages.map((stage,index)=>{const base=245-index*9+(periodSeed+index)%9;const completed=base*multiplier;const queue=[18,24,16,31,14,37,11,4][index];return {stage,completed,queue,processing:`${17+index*3} min`,status:queue>30?"Queue building":"On track"};}),[periodSeed,multiplier]);
+  const data=useMemo(()=>stages.map(stage=>({stage,completed:0,queue:0,processing:"—",status:"On track"})),[]);
   const label=periodLabel(period,date,month,start,end);
 
   return <LegacyShell><div className="performance-reference-view">

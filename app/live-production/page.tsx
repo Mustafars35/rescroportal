@@ -1,21 +1,25 @@
+"use client";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Activity, CalendarDays, CheckCircle2, ChevronDown, RefreshCw, Target } from "lucide-react";
 import { LegacyShell } from "@/components/legacy-shell";
 import { config } from "@/components/factory-ui";
-import { orders, stages } from "@/lib/orders";
+import { stages } from "@/lib/orders";
+import { readReleasedProductionItems } from "@/lib/release";
 
 const target=220;
-const produced=164;
-const completedToday=9;
+const produced=0;
+const completedToday=0;
 
 export default function LiveProduction(){
-  const inProduction=orders.filter(order=>!["Finished","Waiting for Mesh"].includes(order.stage)).length;
+  const [items,setItems]=useState<ReturnType<typeof readReleasedProductionItems>>([]);
+  useEffect(()=>{const sync=()=>setItems(readReleasedProductionItems());sync();window.addEventListener("rescro-release-updated",sync);return()=>window.removeEventListener("rescro-release-updated",sync)},[]);
+  const inProduction=items.reduce((total,item)=>total+item.quantity,0);
   const progress=Math.round((produced/target)*100);
   const today=new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"long",year:"numeric"}).format(new Date());
   const weekday=new Intl.DateTimeFormat("en-GB",{weekday:"long"}).format(new Date());
   const lastUpdated=new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
-  const counts=Object.fromEntries(stages.map(stage=>[stage,orders.filter(order=>order.stage===stage).reduce((total,order)=>total+order.quantity,0)]));
+  const counts=Object.fromEntries(stages.map(stage=>[stage,items.filter(item=>item.stage===stage).reduce((total,item)=>total+item.quantity,0)]));
 
   return <LegacyShell><div className="live-reference-view">
     <header className="reference-top">

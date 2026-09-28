@@ -1,4 +1,4 @@
-import { orders } from "@/lib/orders";
+import { poolOrders } from "@/lib/order-pool";
 
 export type ReleaseStatus = "Not Released" | "Released";
 
@@ -26,4 +26,9 @@ export function releaseOrders(orderIds: string[]) {
 
 export function releaseStatus(id: string, releasedIds: Set<string>): ReleaseStatus {
   return releasedIds.has(id) ? "Released" : "Not Released";
+}
+
+export function readReleasedProductionItems(){
+  const released=readReleasedIds();
+  return poolOrders.flatMap(order=>order.items.filter(item=>released.has(item.id)).map(item=>({orderId:order.id,customer:order.customer,...item,stage:"Waiting for Mesh" as const})));
 }
