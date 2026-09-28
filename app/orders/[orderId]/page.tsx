@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getOrder, stages, type Stage } from "@/lib/orders";
+import { shipments, shipmentLabel } from "@/lib/shipments";
 
 const stageMeta: Record<Stage, { color: string; soft: string; icon: typeof Clock3 }> = {
   "Waiting for Mesh": { color: "#f07b12", soft: "#fff4e8", icon: Grid3X3 },
@@ -37,6 +38,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const wingFrame = (order.direction === "Vertical" ? order.width : order.height) - 7.6;
   const thresholdless = (order.direction === "Vertical" ? order.width : order.height) - 3.4;
   const cordLength = order.width + order.height + 20;
+  const shipment = shipments.find(item=>item.orderIds.includes(order.id));
 
   return <main className="order-detail-page">
     <header className="detail-topbar">
@@ -115,6 +117,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
           <dl className="detail-grid three"><DataField label="Width" value={`${order.width} cm`}/><DataField label="Height" value={`${order.height} cm`}/><DataField label="Assembly" value="Screws and accessories"/></dl>
         </section>
       </article>
+
+      {shipment?<section className="package-section order-shipping-card"><header><div><h2>Shipping</h2><p>Current shipment information</p></div><Link href={`/shipping/${shipment.id}`} className="view-order-link">View Shipment</Link></header><dl className="detail-grid three"><DataField label="Shipment" value={shipment.id}/><DataField label="Vehicle" value={shipment.vehiclePlate}/><DataField label="Shipping Status" value={shipmentLabel(shipment.status)}/><DataField label="ETA" value={shipment.estimatedArrival}/><DataField label="Destination" value={shipment.destination}/></dl></section>:null}
 
       <section className="package-section">
         <header><div><h2>Package Information</h2><p>Packages created for this order</p></div><button type="button"><Box/> Add Package</button></header>
