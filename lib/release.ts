@@ -4,7 +4,7 @@ export type ReleaseStatus = "Not Released" | "Released";
 
 const storageKey = "rescro-demo-released-orders";
 // The first 42 records represent newly imported Shopify orders waiting for planning.
-export const seededReleasedIds = new Set(orders.slice(42).map((order) => order.id));
+export const seededReleasedIds = new Set<string>();
 
 export function readReleasedIds(): Set<string> {
   if (typeof window === "undefined") return seededReleasedIds;
