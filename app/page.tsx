@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { orders, stages as flow, type Stage } from "@/lib/orders";
+import { readReleasedIds } from "@/lib/release";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
   "Waiting for Mesh":{color:"#C00000",soft:"#ffffff",icon:Grid3X3},
@@ -36,7 +37,7 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Finished":{color:"#C55A8C",soft:"#ffffff",icon:CheckCircle2},
 };
 
-const nav = [[LayoutDashboard,"Dashboard","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/"],[UserRound,"User Management","/"],[Settings,"Settings","/"]] as const;
+const nav = [[LayoutDashboard,"Dashboard","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/audit-logs"],[UserRound,"User Management","/user-management"],[Settings,"Settings","/"]] as const;
 const lastLabel:Record<Stage,string> = {
   "Waiting for Mesh":"Not started yet","Cord & Eyelet":"Mesh completed","Waiting for Frame":"Cord & Eyelet completed",
   "Waiting for Assembly":"Frame completed","Quality Control":"Assembly completed",
@@ -61,14 +62,17 @@ function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge clas
 
 export default function Home() {
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all"); const [productionOnly,setProductionOnly]=useState(false);
+  const [releasedIds,setReleasedIds]=useState(()=>new Set<string>());
   const [selected,setSelected]=useState<string[]>([]);
-  const filtered=useMemo(()=>orders.filter(o=>
+  useEffect(()=>{const sync=()=>setReleasedIds(readReleasedIds());sync();window.addEventListener("rescro-release-updated",sync);return()=>window.removeEventListener("rescro-release-updated",sync)},[]);
+  const productionOrders=useMemo(()=>orders.filter(order=>releasedIds.has(order.id)),[releasedIds]);
+  const filtered=useMemo(()=>productionOrders.filter(o=>
     `${o.id} ${o.customer}`.toLowerCase().includes(query.toLowerCase()) &&
     (store==="all"||o.store===store) && (stage==="all"||o.stage===stage) && (!productionOnly || !["Waiting for Mesh","Finished"].includes(o.stage))
-  ),[query,store,stage,productionOnly]);
-  const finished=orders.filter(o=>o.stage==="Finished").length;
-  const notStarted=orders.filter(o=>o.stage==="Waiting for Mesh").length;
-  const production=orders.length-finished-notStarted; const pct=(v:number)=>v/orders.length*100;
+  ),[query,store,stage,productionOnly,productionOrders]);
+  const finished=productionOrders.filter(o=>o.stage==="Finished").length;
+  const notStarted=productionOrders.filter(o=>o.stage==="Waiting for Mesh").length;
+  const production=productionOrders.length-finished-notStarted; const pct=(v:number)=>productionOrders.length?v/productionOrders.length*100:0;
   const allSelected=filtered.length>0&&filtered.every(o=>selected.includes(o.id));
   const toggleAll=()=>setSelected(allSelected?selected.filter(id=>!filtered.some(o=>o.id===id)):Array.from(new Set([...selected,...filtered.map(o=>o.id)])));
 
@@ -128,7 +132,7 @@ export default function Home() {
       </header>
       <section className="export-row">{selected.length>0&&<span className="selected-count">{selected.length} order{selected.length>1?"s":""} selected</span>}<Button variant="outline"><FileSpreadsheet/> Export Excel</Button><Button variant="outline"><Download/> Export Customs</Button><Button variant="outline"><Download/> Export PDF</Button></section>
       <section className="metrics">
-        <MetricCard label="TOTAL ORDERS" value={orders.length} hint="All orders in system" percent={pct(finished)} color="#161616" icon={Box}/>
+        <MetricCard label="TOTAL ORDERS" value={productionOrders.length} hint="Released orders in system" percent={pct(finished)} color="#161616" icon={Box}/>
         <MetricCard label="NOT STARTED ORDERS" value={notStarted} hint="Waiting for Mesh" percent={pct(notStarted)} color="#353535" icon={Clock3}/>
         <MetricCard label="ORDERS IN PRODUCTION" value={production} hint="Including Packed" percent={pct(production)} color="#515151" icon={CircleGauge}/>
         <MetricCard label="FINISHED ORDERS" value={finished} hint="Manually finished" percent={pct(finished)} color="#707070" icon={CheckCircle2}/>
@@ -157,7 +161,7 @@ export default function Home() {
             <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`} target="_blank" rel="noreferrer"><Eye/> View Order</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
         </Table>{filtered.length===0&&<div className="empty"><Search/><b>No orders found</b><span>Try changing your search or filters.</span></div>}</div>
-        <footer className="pagination"><span>Showing {filtered.length} of {orders.length} orders</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>
+        <footer className="pagination"><span>Showing {filtered.length} of {productionOrders.length} released orders</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>
       </Card>
     </main></SidebarInset>
 

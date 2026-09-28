@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./operations.css";
 import "./rescro-theme.css";
+import "./release.css";
 
 export const metadata: Metadata = {
   title: "RESCRO Production Portal",
