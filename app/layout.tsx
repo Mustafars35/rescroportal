@@ -5,6 +5,7 @@ import "./rescro-theme.css";
 import "./release.css";
 import "./pool-table.css";
 import "./pool-extra.css";
+import "./pool-flow-fix.css";
 
 export const metadata: Metadata = {
   title: "RESCRO Production Portal",

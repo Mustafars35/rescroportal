@@ -34,4 +34,4 @@ export function readReleasedProductionItems(){
   return poolOrders.flatMap(order=>order.items.filter(item=>released.has(item.id)).map(item=>({orderId:order.id,customer:order.customer,...item,stage:"Waiting for Mesh" as const})));
 }
 
-export function readReleasedProductionOrders():Order[]{return readReleasedProductionItems().map(item=>({id:`${item.orderId}-${item.id}`,customer:item.customer,date:new Date().toLocaleDateString("en-GB"),store:`.${item.orderId.slice(0,2).toLowerCase()}`,stage:"Waiting for Mesh",last:"-",eta:"Upcoming 3 days",product:item.name,color:item.color,width:100,height:200,direction:"Vertical",threshold:"None",quantity:item.quantity,ageDays:0,stageEnteredDays:0,risk:"Normal"}));}
+export function readReleasedProductionOrders():Order[]{return readReleasedProductionItems().map(item=>({id:item.orderId,customer:item.customer,date:new Date().toLocaleDateString("en-GB"),store:`.${item.orderId.slice(0,2).toLowerCase()}`,stage:"Waiting for Mesh",last:"-",eta:"Upcoming 3 days",product:item.name,color:item.color,width:100,height:200,direction:"Vertical",threshold:"None",quantity:item.quantity,ageDays:0,stageEnteredDays:0,risk:"Normal"}));}
