@@ -3,7 +3,8 @@ import type { Order } from "@/lib/orders";
 
 export type ReleaseStatus = "Not Released" | "Released";
 
-const storageKey = "rescro-demo-released-orders";
+// New key intentionally starts the corrected item-level workflow with a clean demo state.
+const storageKey = "rescro-demo-released-items-v2";
 // The first 42 records represent newly imported Shopify orders waiting for planning.
 export const seededReleasedIds = new Set<string>();
 
