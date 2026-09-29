@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, Clock3, PackageOpen } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, PackageOpen, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { PoolOrder } from "@/lib/order-pool";
-import { readReleasedIds } from "@/lib/release";
+import { readReleasedIds, returnEntireOrderToPool, returnItemsToPool } from "@/lib/release";
 
 export default function OrderDetailClient({ order }: { order: PoolOrder }) {
   const [released, setReleased] = useState<Set<string>>(() => new Set());
@@ -15,6 +15,9 @@ export default function OrderDetailClient({ order }: { order: PoolOrder }) {
     return () => window.removeEventListener("rescro-release-updated", sync);
   }, []);
   const productionItems = order.items.filter((item) => released.has(item.id));
+  const sync = () => setReleased(readReleasedIds());
+  const returnItem = (itemId: string) => { returnItemsToPool([itemId]); sync(); };
+  const returnOrder = () => { returnEntireOrderToPool(order.id); sync(); };
 
   return <main className="order-detail-page">
     <header className="detail-topbar"><Link href="/" className="detail-logo">RESCRO</Link><div className="detail-actions"><Link href="/" className="back-link"><ArrowLeft/> Orders</Link></div></header>
@@ -25,11 +28,12 @@ export default function OrderDetailClient({ order }: { order: PoolOrder }) {
         <div><span>Original Shopify Items</span><strong>{order.items.length} items</strong></div><div><span>Items in Production</span><strong>{productionItems.length}</strong></div>
         <div><span>Order Status</span><Badge className="summary-stage">{productionItems.length ? "In Production" : "Not Sent to Production"}</Badge></div>
       </section>
+      {productionItems.length ? <div className="item-card-toolbar"><span>Return releases to Order Pool without changing the original Shopify order.</span><button type="button" onClick={returnOrder}><Undo2/> Return Entire Order to Order Pool</button></div> : null}
       <div className="items-heading"><div><h1>Order Items</h1><p>Original Shopify order and the production state of each item.</p></div><Badge>{order.items.length} ITEMS</Badge></div>
       {order.items.map((item, index) => {
         const inProduction = released.has(item.id);
         return <article className="order-item-card" key={item.id}>
-          <header className="item-card-header"><div><span className="item-number">{index + 1}</span><div><h2>{item.name}</h2><p>{item.quantity} × {item.color}</p></div></div><Badge className={inProduction ? "current-stage" : ""}>{inProduction ? "Waiting for Mesh" : item.manufactured ? "Not Sent to Production" : "Production excluded"}</Badge></header>
+          <header className="item-card-header"><div><span className="item-number">{index + 1}</span><div><h2>{item.name}</h2><p>{item.quantity} × {item.color}</p></div></div><div className="detail-item-actions"><Badge className={inProduction ? "current-stage" : ""}>{inProduction ? "Waiting for Mesh" : item.manufactured ? "Not Sent to Production" : "Production excluded"}</Badge>{inProduction ? <button type="button" onClick={() => returnItem(item.id)}><Undo2/> Return Item to Order Pool</button> : null}</div></header>
           <div className="production-section compact-section"><header><h3>Production Status</h3>{inProduction ? <CheckCircle2/> : <Clock3/>}</header><dl className="detail-grid three"><div className="detail-field"><dt>Item status</dt><dd>{inProduction ? "In Production" : "Not Sent to Production"}</dd></div><div className="detail-field"><dt>Current stage</dt><dd>{inProduction ? "Waiting for Mesh" : "—"}</dd></div><div className="detail-field"><dt>Production eligibility</dt><dd>{item.manufactured ? "Factory-made item" : "External / excluded item"}</dd></div></dl></div>
         </article>;
       })}

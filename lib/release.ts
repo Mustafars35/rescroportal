@@ -26,6 +26,27 @@ export function releaseOrders(orderIds: string[]) {
   return next;
 }
 
+/** Removes only the supplied child items from production and returns them to the Pool. */
+export function returnItemsToPool(itemIds: string[]) {
+  const next = readReleasedIds();
+  itemIds.forEach((id) => next.delete(id));
+  localStorage.setItem(storageKey, JSON.stringify([...next]));
+  window.dispatchEvent(new Event("rescro-release-updated"));
+  return next;
+}
+
+/** Finds the currently released child items belonging to one Shopify parent order. */
+export function releasedItemIdsForOrder(orderId: string): string[] {
+  const released = readReleasedIds();
+  const order = poolOrders.find((item) => item.id === orderId);
+  return order ? order.items.filter((item) => released.has(item.id)).map((item) => item.id) : [];
+}
+
+/** Returns every released item of a parent Shopify order without deleting the order itself. */
+export function returnEntireOrderToPool(orderId: string) {
+  return returnItemsToPool(releasedItemIdsForOrder(orderId));
+}
+
 export function releaseStatus(id: string, releasedIds: Set<string>): ReleaseStatus {
   return releasedIds.has(id) ? "Released" : "Not Released";
 }
