@@ -2,41 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, Clock3, PackageOpen, Undo2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardCheck, Grid3X3, Hammer, Link2, PackageOpen, Ruler, ShieldCheck, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { PoolOrder } from "@/lib/order-pool";
+import type { PoolItem, PoolOrder } from "@/lib/order-pool";
 import { readReleasedIds, returnEntireOrderToPool } from "@/lib/release";
 
-export default function OrderDetailClient({ order }: { order: PoolOrder }) {
-  const [released, setReleased] = useState<Set<string>>(() => new Set());
-  useEffect(() => {
-    const sync = () => setReleased(readReleasedIds());
-    sync(); window.addEventListener("rescro-release-updated", sync);
-    return () => window.removeEventListener("rescro-release-updated", sync);
-  }, []);
-  const productionItems = order.items.filter((item) => released.has(item.id));
-  const sync = () => setReleased(readReleasedIds());
-  const returnOrder = () => { returnEntireOrderToPool(order.id); sync(); };
+const stations = [
+  ["Mesh", Grid3X3], ["Cord & Eyelet", Link2], ["Frame", Ruler], ["Assembly", Hammer], ["Quality Control", ShieldCheck], ["Packaging", PackageOpen],
+] as const;
+type Station = (typeof stations)[number][0];
+const stationColor: Record<Station, string> = { Mesh: "#c00000", "Cord & Eyelet": "#ed7d31", Frame: "#c99a00", Assembly: "#70ad47", "Quality Control": "#5b9bd5", Packaging: "#7030a0" };
 
-  return <main className="order-detail-page">
-    <header className="detail-topbar"><Link href="/" className="detail-logo">RESCRO</Link><div className="detail-actions"><Link href="/" className="back-link"><ArrowLeft/> Orders</Link></div></header>
-    <div className="detail-container">
-      <Link href="/" className="return-link"><ArrowLeft/> Back to Orders</Link>
-      <section className="order-summary">
-        <div><span>Order Number</span><strong>{order.id}</strong></div><div><span>Customer</span><strong>{order.customer}</strong></div><div><span>Order Date</span><strong>{order.date}</strong></div>
-        <div><span>Original Shopify Items</span><strong>{order.items.length} items</strong></div><div><span>Items in Production</span><strong>{productionItems.length}</strong></div>
-        <div><span>Order Status</span><Badge className="summary-stage">{productionItems.length ? "In Production" : "Not Sent to Production"}</Badge></div>
-      </section>
-      {productionItems.length ? <div className="item-card-toolbar"><span>Return releases to Order Pool without changing the original Shopify order.</span><button type="button" onClick={returnOrder}><Undo2/> Return Entire Order to Order Pool</button></div> : null}
-      <div className="items-heading"><div><h1>Order Items</h1><p>Original Shopify order and the production state of each item.</p></div><Badge>{order.items.length} ITEMS</Badge></div>
-      {order.items.map((item, index) => {
-        const inProduction = released.has(item.id);
-        return <article className="order-item-card" key={item.id}>
-          <header className="item-card-header"><div><span className="item-number">{index + 1}</span><div><h2>{item.name}</h2><p>{item.quantity} × {item.color}</p></div></div><div className="detail-item-actions"><Badge className={inProduction ? "current-stage" : ""}>{inProduction ? "Waiting for Mesh" : item.manufactured ? "Not Sent to Production" : "Production excluded"}</Badge></div></header>
-          <div className="production-section compact-section"><header><h3>Production Status</h3>{inProduction ? <CheckCircle2/> : <Clock3/>}</header><dl className="detail-grid three"><div className="detail-field"><dt>Item status</dt><dd>{inProduction ? "In Production" : "Not Sent to Production"}</dd></div><div className="detail-field"><dt>Current stage</dt><dd>{inProduction ? "Waiting for Mesh" : "—"}</dd></div><div className="detail-field"><dt>Production eligibility</dt><dd>{item.manufactured ? "Factory-made item" : "External / excluded item"}</dd></div></dl></div>
-        </article>;
-      })}
-      <section className="package-section"><header><div><h2>Production summary</h2><p>The Shopify order remains one parent order. Only selected child items enter production.</p></div><PackageOpen/></header><strong>{productionItems.length} of {order.items.length} items released to production</strong></section>
-    </div>
-  </main>;
+function Field({label,value,important=false}:{label:string;value:string;important?:boolean}){return <div className="detail-field"><dt>{label}</dt><dd style={important?{fontSize:20,color:"#111827"}:undefined}>{value}</dd></div>}
+function itemData(item:PoolItem,index:number){const curtain=item.name.includes("Curtain");const windowLike=item.name.includes("Window")||curtain;const pollen=item.name.includes("Pollen")||index%3===1;const width=900+index*100;const height=2100+index*50;return {curtain,windowLike,pollen,width,height,piles:45+index*4,mesh:(height/10-4.2).toFixed(1),cord:Math.round((width+height)/10+20),profileColor:item.color,thresholdColor:index%2?"Black":item.color,direction:index%2?"Vertical":"Horizontal",closing:index%2?"Right":"Left",montage:index%4===0};}
+
+function Detail({station,item,index}:{station:Station;item:PoolItem;index:number}){const d=itemData(item,index);const meshType=d.pollen?"POLLEN":"STANDARD";if(station==="Mesh")return <section className="production-section"><header><h3>Mesh Details</h3><Badge>Production instruction</Badge></header><div className="detail-grid three"><Field label="TÜL TÜRÜ" value={meshType} important/><Field label="PILE SAYISI" value={String(d.piles)}/><Field label="TÜL BOYU" value={`${d.mesh} cm`}/><Field label="İP BOYU" value={`${d.cord} cm`}/>{d.curtain?<><Field label="PERDE TÜRÜ" value="Perdeli Sineklik"/><Field label="PERDE RENGİ" value={item.color}/></>:null}</div></section>;
+if(station==="Cord & Eyelet")return <section className="production-section"><header><h3>Cord & Eyelet Details</h3><Badge>Production instruction</Badge></header><div className="detail-grid three"><Field label="İP BOYU" value={`${d.cord} CM`} important/><Field label="Tül Türü" value={meshType}/><Field label="Pile Sayısı" value={String(d.piles)}/><Field label="Tül Boyu" value={`${d.mesh} cm`}/></div></section>;
+if(station==="Frame")return <section className="production-section"><header><h3>Frame Details</h3><Badge>Profile cutting</Badge></header><div className="detail-grid three"><Field label="PROFİL RENGİ" value={d.profileColor} important/><Field label="KANALSIZ PROFİL" value={`${d.mesh} cm · 2 adet`}/><Field label="KANALLI PROFİL" value={`${d.mesh} cm · 2 adet`}/><Field label="KANAT PROFİL" value={`${(d.height/10).toFixed(1)} cm · 1 adet`}/><Field label="EŞİK PROFİL" value={`${d.mesh} cm · 1 adet`}/><Field label="EŞİK RENGİ" value={d.thresholdColor}/></div></section>;
+if(station==="Assembly")return <section className="production-section"><header><h3>Assembly Details</h3><Badge>Product configuration</Badge></header><div className="detail-grid three"><Field label="ÜRÜN RENGİ" value={item.color}/><Field label="KAPANMA YÖNÜ" value={d.closing}/><Field label="KAPANMA TÜRÜ" value="Magnetic"/><Field label="TAKOZ / KAPAK RENGİ" value={d.profileColor}/><Field label="EŞİK TÜRÜ" value="Standard"/><Field label="TÜL TÜRÜ" value={meshType}/>{d.windowLike?<Field label="ÜRÜN YÖNÜ" value={d.direction}/>:null}</div></section>;
+if(station==="Quality Control")return <section className="production-section"><header><h3>Quality Control Details</h3><Badge>Final verification</Badge></header><div className="detail-grid three"><Field label="FINAL ÖLÇÜ" value={`${d.width} × ${d.height} mm`} important/><Field label="RENK" value={item.color}/><Field label="TÜL TÜRÜ" value={meshType}/><Field label="KAPANMA TÜRÜ" value="Magnetic"/><Field label="KAPANMA YÖNÜ" value={d.closing}/>{d.windowLike?<Field label="ÜRÜN YÖNÜ" value={d.direction}/>:null}</div></section>;
+return <section className="production-section"><header><h3>Packaging Details</h3><Badge>Final packing check</Badge></header><div className="detail-grid three"><Field label="ÖLÇÜ" value={`${d.width} × ${d.height} mm`} important/><Field label="RENK" value={item.color}/><Field label="MONTAJ" value={d.montage?"EVET – MONTAJ HİZMETİ VAR":"HAYIR – MÜŞTERİ KENDİ MONTAJ EDECEK"} important/></div></section>}
+
+export default function OrderDetailClient({ order }: { order: PoolOrder }) {
+  const [released,setReleased]=useState<Set<string>>(()=>new Set());const [active,setActive]=useState<Record<string,Station>>({});
+  useEffect(()=>{const sync=()=>setReleased(readReleasedIds());sync();window.addEventListener("rescro-release-updated",sync);return()=>window.removeEventListener("rescro-release-updated",sync)},[]);
+  const productionItems=order.items.filter(item=>released.has(item.id));const [first,last=""]=order.customer.split(" ");const totalQuantity=order.items.reduce((sum,item)=>sum+item.quantity,0);
+  const returnOrder=()=>{returnEntireOrderToPool(order.id);setReleased(readReleasedIds())};
+  return <main className="order-detail-page"><header className="detail-topbar"><Link href="/" className="detail-logo">RESCRO</Link><div className="detail-actions"><Link href="/" className="back-link"><ArrowLeft/> Orders</Link></div></header><div className="detail-container"><Link href="/" className="return-link"><ArrowLeft/> Back to Orders</Link><section className="order-summary"><Field label="Sipariş Numarası" value={order.id}/><Field label="Adı" value={first}/><Field label="Soyadı" value={last}/><Field label="Toplam Kalem" value={String(order.items.length)}/><Field label="Toplam Adet" value={String(totalQuantity)}/><Field label="Sipariş Tarihi" value={order.date}/></section>{productionItems.length?<div className="item-card-toolbar"><span>Return this complete order to Order Pool.</span><button type="button" onClick={returnOrder}><Undo2/> Return Entire Order to Order Pool</button></div>:null}<div className="items-heading"><div><h1>Order Items</h1><p>Each item has its own production instruction and flow.</p></div><Badge>{order.items.length} ITEMS</Badge></div>{order.items.map((item,index)=>{const inProduction=released.has(item.id);const selectedStation=active[item.id]??"Mesh";return <article className="order-item-card" key={item.id}><header className="item-card-header"><div><span className="item-number">{index+1}</span><div><h2>Order Item {index+1} · {item.name}</h2><p>Quantity: {item.quantity} · Color: {item.color}</p></div></div><Badge className={inProduction?"current-stage":""}>{inProduction?"In Production":"Not Selected"}</Badge></header><div className="item-flow">{stations.map(([name,Icon],stationIndex)=>{const isActive=name===selectedStation;return <button type="button" style={{border:0,background:"transparent",padding:0,cursor:"pointer"}} className={`item-flow-step${isActive?" active":""}`} onClick={()=>setActive(values=>({...values,[item.id]:name}))} key={name}><div className="item-flow-line"><span style={{color:stationColor[name]}}><Icon/></span>{stationIndex<stations.length-1?<i/>:null}</div><strong>{name}</strong><Badge variant="secondary">{isActive?inProduction?"In Progress":"Pending":"Pending"}</Badge></button>})}</div><Detail station={selectedStation} item={item} index={index}/></article>})}<section className="package-section"><header><div><h2>Order production summary</h2><p>Original Shopify order stays intact; selected production items are tracked below it.</p></div><ClipboardCheck/></header><strong>{productionItems.length} of {order.items.length} items released to production</strong></section></div></main>;
 }
