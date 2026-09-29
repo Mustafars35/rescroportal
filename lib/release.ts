@@ -31,7 +31,21 @@ export function releaseStatus(id: string, releasedIds: Set<string>): ReleaseStat
 
 export function readReleasedProductionItems(){
   const released=readReleasedIds();
-  return poolOrders.flatMap(order=>order.items.filter(item=>released.has(item.id)).map(item=>({orderId:order.id,customer:order.customer,...item,stage:"Waiting for Mesh" as const})));
+  return poolOrders.flatMap(order=>order.items.filter(item=>released.has(item.id)).map(item=>({orderId:order.id,orderDate:order.date,customer:order.customer,...item,stage:"Waiting for Mesh" as const})));
 }
 
-export function readReleasedProductionOrders():Order[]{return readReleasedProductionItems().map(item=>({id:item.orderId,customer:item.customer,date:new Date().toLocaleDateString("en-GB"),store:`.${item.orderId.slice(0,2).toLowerCase()}`,stage:"Waiting for Mesh",last:"-",eta:"Upcoming 3 days",product:item.name,color:item.color,width:100,height:200,direction:"Vertical",threshold:"None",quantity:item.quantity,ageDays:0,stageEnteredDays:0,risk:"Normal"}));}
+/**
+ * Dashboard rows represent the Shopify parent order, never individual items.
+ * Individual items remain the production records used by stations and Live Production.
+ */
+export function readReleasedProductionOrders():Order[]{
+  const grouped=new Map<string,ReturnType<typeof readReleasedProductionItems>>();
+  readReleasedProductionItems().forEach(item=>{
+    const existing=grouped.get(item.orderId)??[];
+    existing.push(item); grouped.set(item.orderId,existing);
+  });
+  return [...grouped.entries()].map(([id,items])=>{
+    const first=items[0];
+    return {id,customer:first.customer,date:first.orderDate,store:`.${id.slice(0,2).toLowerCase()}`,stage:"Waiting for Mesh",last:"-",eta:"Upcoming 3 days",product:items.length===1?first.name:`${items.length} production items`,color:items.length===1?first.color:"Mixed",width:100,height:200,direction:"Vertical",threshold:"None",quantity:items.reduce((sum,item)=>sum+item.quantity,0),ageDays:0,stageEnteredDays:0,risk:"Normal"};
+  });
+}
