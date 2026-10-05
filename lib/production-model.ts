@@ -16,7 +16,7 @@ export function availableStations(user: {role:Role;permissions:Permission[]}): W
 export function canCompleteStation(user: {role:Role;permissions:Permission[]}, station: WorkStation) {
   return user.role === "Admin" || user.permissions.includes(`Complete ${station}` as Permission);
 }
-export type ProductionItem = PoolItem & {orderId:string;orderDate:string;customer:string;stage:Stage;releasedAt:string;stageEnteredAt:string;completedAt:string|null;run:number};
+export type ProductionItem = PoolItem & {orderId:string;orderDate:string;customer:string;stage:Stage;releasedAt:string;stageEnteredAt:string;completedAt:string|null;run:number;stationCompleted?:boolean};
 export type ProductionEvent = {id:string;orderId:string;itemId:string|null;station:Stage;action:"released"|"completed"|"returned";quantity:number;userId:string|null;userName:string;at:string;run:number};
 export type ProductionSnapshot = {orders:PoolOrder[];items:ProductionItem[];events:ProductionEvent[];updatedAt:string};
 export const emptyProduction:ProductionSnapshot = {orders:[],items:[],events:[],updatedAt:""};

@@ -1,3 +1,8 @@
 declare module "@neondatabase/serverless" {
-  export function neon(connectionString: string): (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
+  type QueryResult = Record<string, unknown>[];
+  type Sql = {
+    (strings: TemplateStringsArray, ...values: unknown[]): Promise<QueryResult>;
+    transaction(queries: Promise<QueryResult>[]): Promise<QueryResult[]>;
+  };
+  export function neon(connectionString: string): Sql;
 }

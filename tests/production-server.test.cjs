@@ -2,7 +2,9 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const {PGlite}=require('@electric-sql/pglite');
 test('shared database: partial release, all stations, reports, logs, whole-order return, duplicate protection and authorization',async(t)=>{
  const database=new PGlite();const loaded=new Map();let currentUser=null;
- const tagged=async(strings,...values)=>{let query=strings[0];values.forEach((value,index)=>{query+=`$${index+1}`+strings[index+1];});return (await database.query(query,values)).rows;};
+ const tagged=(strings,...values)=>{let query=strings[0];values.forEach((value,index)=>{query+=`$${index+1}`+strings[index+1];});return {then:(resolve,reject)=>database.query(query,values).then(result=>result.rows).then(resolve,reject)};};
+ tagged.transaction=async queries=>{await database.query('BEGIN');try{const results=[];for(const query of queries)results.push(await query);await database.query('COMMIT');return results;}catch(error){await database.query('ROLLBACK');throw error;}};
+
  const mocks={'@neondatabase/serverless':{neon:()=>tagged},'next/headers':{cookies:async()=>({get:()=>({value:'test-session'})})},'next/server':{NextResponse:{json:(value,init={})=>new Response(JSON.stringify(value),{...init,headers:{'Content-Type':'application/json',...init.headers}})}}};
  function load(file){if(loaded.has(file))return loaded.get(file);const module={exports:{}};const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;vm.runInNewContext(code,{module,exports:module.exports,require:name=>name==='@/lib/auth'&&loaded.has('lib/auth.ts')?{...loaded.get('lib/auth.ts'),getSessionUser:async()=>currentUser}:mocks[name]??(name.startsWith('@/')?load(name.slice(2)+'.ts'):require(name)),console,process:{env:{DATABASE_URL:'postgres://test'}},Buffer,Request,Response,URL,Date,Set,Map});loaded.set(file,module.exports);return module.exports;}
  const auth=load('lib/auth.ts');const server=load('lib/production-server.ts');const model=load('lib/production-model.ts');const route=load('app/api/production/route.ts');
@@ -23,12 +25,22 @@ test('shared database: partial release, all stations, reports, logs, whole-order
   currentUser={...mesh,permissions:["View Dashboard"]};const visible=await (await route.GET()).json();assert.equal(visible.orders.length,1);assert.equal(visible.orders[0].id,parent.id);
   currentUser=null;assert.equal((await route.GET()).status,401);
  });
- await t.test('item leaves Mesh immediately; duplicate complete is rejected; independently advances to Finished',async()=>{
-  await server.completeProduction(selected[0],'Mesh',mesh,1);state=await server.productionSnapshot();assert.equal(state.items.filter(item=>item.stage==='Waiting for Mesh').length,1);assert.equal(state.items.find(item=>item.id===selected[0]).stage,'Cord & Eyelet');await assert.rejects(server.completeProduction(selected[0],'Mesh',mesh,1),/CONFLICT/);
-  for(const station of model.workStations.slice(1))await server.completeProduction(selected[0],station,admin,1);
-  state=await server.productionSnapshot();assert.equal(state.items.find(item=>item.id===selected[0]).stage,'Finished');assert.equal(model.aggregateOrders(state.items)[0].stage,'Waiting for Mesh');
-  for(const station of model.workStations)await server.completeProduction(selected[1],station,admin,1);
-  state=await server.productionSnapshot();assert.equal(model.aggregateOrders(state.items)[0].stage,'Finished');assert.equal(state.items.filter(item=>item.stage!=='Finished').length,0);
+ await t.test('order waits for every selected item at every station; no item can skip ahead or complete twice',async()=>{
+  for(const station of model.workStations){
+    const actor=station==='Mesh'?mesh:admin;
+    await server.completeProduction(selected[0],station,actor,1);
+    state=await server.productionSnapshot();
+    assert.ok(state.items.every(item=>item.stage===model.workStage[station]));
+    assert.equal(state.items.find(item=>item.id===selected[0]).stationCompleted,true);
+    assert.equal(state.items.find(item=>item.id===selected[1]).stationCompleted,false);
+    await assert.rejects(server.completeProduction(selected[0],station,actor,1),/CONFLICT/);
+    if(station!=='Packaging')await assert.rejects(server.completeProduction(selected[0],model.workStations[model.workStations.indexOf(station)+1],admin,1),/CONFLICT/);
+    await server.completeProduction(selected[1],station,admin,1);
+    state=await server.productionSnapshot();
+    assert.ok(state.items.every(item=>item.stage===model.nextWorkStage(model.workStage[station])));
+    assert.ok(state.items.every(item=>!item.stationCompleted));
+  }
+  assert.equal(model.aggregateOrders(state.items)[0].stage,'Finished');
  });
  await t.test('reports count real quantities, completion actor and timestamps; employee totals match station total',async()=>{
   const today=model.dateKey();const totals=model.stationTotals(state.events,today,today);for(const row of totals)assert.equal(row.value,quantity);
