@@ -4,13 +4,16 @@ import { useMemo, useState } from "react";
 import { BarChart3, Boxes, CalendarDays, CheckCircle2 } from "lucide-react";
 import { LegacyShell } from "@/components/legacy-shell";
 import { config } from "@/components/factory-ui";
+import { useProduction, ProductionNotice } from "@/components/production-provider";
+import { dateKey, stationTotals } from "@/lib/production-model";
 import { stages } from "@/lib/orders";
 
 export default function ProductionOverview(){
-  const [date,setDate]=useState("2026-09-14");
-  const values=stages.map(stage=>({stage,value:0}));
+  const {snapshot}=useProduction();
+  const [date,setDate]=useState(()=>dateKey());
+  const values=stationTotals(snapshot.events,date,date);
   const finished=values.find(item=>item.stage==="Finished")?.value??0;
-  const entering=values[0]?.value??0;
+  const entering=snapshot.events.filter(event=>event.action==="released"&&dateKey(event.at)===date).reduce((sum,event)=>sum+event.quantity,0);
   const average=Math.round(values.reduce((sum,item)=>sum+item.value,0)/values.length);
   const formattedDate=date.split("-").reverse().join("/");
   const maximum=Math.max(1,...values.map(item=>item.value));
@@ -21,7 +24,7 @@ export default function ProductionOverview(){
       <label className="overview-date-picker"><CalendarDays/><input type="date" value={date} onChange={event=>setDate(event.target.value)}/></label>
     </header>
 
-    <section className="overview-reference-kpis">
+    <ProductionNotice/><section className="overview-reference-kpis">
       <article className="overview-kpi date"><i><CalendarDays/></i><div><b>Selected date</b><strong>{formattedDate}</strong><small>Daily report</small></div></article>
       <article className="overview-kpi total"><i><BarChart3/></i><div><b>Daily total production</b><strong>{finished}</strong><small>Finished items</small></div><em/></article>
       <article className="overview-kpi entering"><i><Boxes/></i><div><b>Items entering production</b><strong>{entering}</strong><small>Started at Mesh</small></div><em/></article>

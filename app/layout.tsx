@@ -6,6 +6,8 @@ import "./release.css";
 import "./pool-table.css";
 import "./pool-extra.css";
 import "./pool-flow-fix.css";
+import { ProductionProvider } from "@/components/production-provider";
+import "./daily-production.css";
 import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
@@ -24,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased"><AuthProvider>{children}</AuthProvider></body>
+      <body className="antialiased"><AuthProvider><ProductionProvider>{children}</ProductionProvider></AuthProvider></body>
     </html>
   );
 }

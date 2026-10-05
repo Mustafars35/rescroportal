@@ -5,20 +5,24 @@ import { Activity, CalendarDays, CheckCircle2, ChevronDown, RefreshCw, Target } 
 import { LegacyShell } from "@/components/legacy-shell";
 import { config } from "@/components/factory-ui";
 import { stages } from "@/lib/orders";
+import { useProduction, ProductionNotice } from "@/components/production-provider";
+import { aggregateOrders, completedOrderDate, dateKey } from "@/lib/production-model";
 import { readReleasedProductionItems } from "@/lib/release";
 
 const target=220;
-const produced=0;
-const completedToday=0;
+
 
 export default function LiveProduction(){
+  const {snapshot}=useProduction();
+  const produced=aggregateOrders(snapshot.items).filter(order=>completedOrderDate(snapshot.items.filter(item=>item.orderId===order.id))===dateKey()).length;
+  const completedToday=produced;
   const [items,setItems]=useState<ReturnType<typeof readReleasedProductionItems>>([]);
   useEffect(()=>{const sync=()=>setItems(readReleasedProductionItems());sync();window.addEventListener("rescro-release-updated",sync);return()=>window.removeEventListener("rescro-release-updated",sync)},[]);
-  const inProduction=items.reduce((total,item)=>total+item.quantity,0);
-  const progress=Math.round((produced/target)*100);
+  const inProduction=aggregateOrders(items).filter(order=>order.stage!=="Finished").length;
+  const progress=Math.min(100,Math.round((produced/target)*100));
   const today=new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"long",year:"numeric"}).format(new Date());
   const weekday=new Intl.DateTimeFormat("en-GB",{weekday:"long"}).format(new Date());
-  const lastUpdated=new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date());
+  const lastUpdated=new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(snapshot.updatedAt||Date.now()));
   const counts=Object.fromEntries(stages.map(stage=>[stage,items.filter(item=>item.stage===stage).reduce((total,item)=>total+item.quantity,0)]));
 
   return <LegacyShell><div className="live-reference-view">
@@ -30,7 +34,7 @@ export default function LiveProduction(){
       </div>
     </header>
 
-    <section className="reference-kpis">
+    <ProductionNotice/><section className="reference-kpis">
       <article className="reference-kpi target"><i><Target/></i><div><b>Daily Target</b><strong>{target}</strong><small>orders planned for today</small></div><em/></article>
       <Link href="/?view=in-production#orders-table" className="reference-kpi production"><i><Activity/></i><div><b>In Production</b><strong>{inProduction}</strong><small>orders currently in progress</small></div><em/></Link>
       <Link href="/?stage=Finished&view=completed-today#orders-table" className="reference-kpi completed"><i><CheckCircle2/></i><div><b>Completed Today</b><strong>{completedToday}</strong><small>orders finished</small></div><em/></Link>
@@ -38,7 +42,7 @@ export default function LiveProduction(){
     </section>
 
     <section className="reference-flow-panel">
-      <div className="reference-flow-head"><div><h2>Production Flow</h2><p>Click a station to view its orders. The list below will show the orders in the selected stage.</p></div><button type="button"><CalendarDays/>Today<ChevronDown/></button></div>
+      <div className="reference-flow-head"><div><h2>Production Flow</h2><p>Click a station to view its orders on the Dashboard.</p></div><button type="button"><CalendarDays/>Today<ChevronDown/></button></div>
       <div className="reference-flow-scroll"><div className="reference-flow-row">
         {stages.map((stage,index)=>{const station=config[stage];const Icon=station.icon;return <Link key={stage} href={`/?stage=${encodeURIComponent(stage)}#orders-table`} className="reference-stage" style={{"--station":station.color} as CSSProperties}><i><Icon/></i><strong>{counts[stage]}</strong><b>{station.short}</b><small>{stage==="Finished"?"Completed":stage}</small>{index<stages.length-1?<em>→</em>:null}</Link>})}
       </div></div>

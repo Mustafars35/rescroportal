@@ -25,6 +25,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { orders, stages as flow, type Stage } from "@/lib/orders";
 import { readReleasedIds, readReleasedProductionOrders, returnEntireOrderToPool } from "@/lib/release";
+import { useProduction, ProductionNotice } from "@/components/production-provider";
+import { completedOrderDate } from "@/lib/production-model";
 import { useAuth } from "@/components/auth-provider";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
@@ -38,11 +40,11 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Finished":{color:"#C55A8C",soft:"#ffffff",icon:CheckCircle2},
 };
 
-const nav = [[LayoutDashboard,"Dashboard","/"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/audit-logs"],[UserRound,"User Management","/user-management"],[Settings,"Settings","/"]] as const;
+const nav = [[LayoutDashboard,"Dashboard","/"],[Factory,"Daily Production","/daily-production"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/audit-logs"],[UserRound,"User Management","/user-management"],[Settings,"Settings","/"]] as const;
 const lastLabel:Record<Stage,string> = {
   "Waiting for Mesh":"Not started yet","Cord & Eyelet":"Mesh completed","Waiting for Frame":"Cord & Eyelet completed",
   "Waiting for Assembly":"Frame completed","Quality Control":"Assembly completed",
-  "Waiting for Packing":"QC completed",Packed:"Packed & ready",Finished:"Manually finished by admin",
+  "Waiting for Packing":"QC completed",Packed:"Packed & ready",Finished:"Production completed",
 };
 
 function MetricCard({label,value,hint,percent,color,icon:Icon}:{label:string;value:number;hint:string;percent:number;color:string;icon:typeof Box}) {
@@ -63,6 +65,7 @@ function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge clas
 
 export default function Home() {
   const {user,can,logout}=useAuth();
+  const {snapshot,refresh}=useProduction(); const [actionError,setActionError]=useState(""); const [returning,setReturning]=useState(""); const [completedTodayOnly,setCompletedTodayOnly]=useState(false);
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all"); const [productionOnly,setProductionOnly]=useState(false);
   const [releasedIds,setReleasedIds]=useState(()=>new Set<string>());
   const [selected,setSelected]=useState<string[]>([]);
@@ -70,16 +73,16 @@ export default function Home() {
   const productionOrders=useMemo(()=>readReleasedProductionOrders(),[releasedIds]);
   const filtered=useMemo(()=>productionOrders.filter(o=>
     `${o.id} ${o.customer}`.toLowerCase().includes(query.toLowerCase()) &&
-    (store==="all"||o.store===store) && (stage==="all"||o.stage===stage) && (!productionOnly || !["Waiting for Mesh","Finished"].includes(o.stage))
-  ),[query,store,stage,productionOnly,productionOrders]);
+    (store==="all"||o.store===store) && (stage==="all"||snapshot.items.some(item=>item.orderId===o.id&&item.stage===stage)) && (!productionOnly || o.stage!=="Finished") && (!completedTodayOnly || completedOrderDate(snapshot.items.filter(item=>item.orderId===o.id))===new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()))
+  ),[query,store,stage,productionOnly,productionOrders,snapshot,completedTodayOnly]);
   const finished=productionOrders.filter(o=>o.stage==="Finished").length;
   const notStarted=productionOrders.filter(o=>o.stage==="Waiting for Mesh").length;
   const production=productionOrders.length-finished-notStarted; const pct=(v:number)=>productionOrders.length?v/productionOrders.length*100:0;
   const allSelected=filtered.length>0&&filtered.every(o=>selected.includes(o.id));
   const toggleAll=()=>setSelected(allSelected?selected.filter(id=>!filtered.some(o=>o.id===id)):Array.from(new Set([...selected,...filtered.map(o=>o.id)])));
-  const returnOrderToPool=(orderId:string)=>{returnEntireOrderToPool(orderId);setReleasedIds(readReleasedIds());setSelected(current=>current.filter(id=>id!==orderId));};
+  const returnOrderToPool=async(orderId:string)=>{if(returning)return;setReturning(orderId);setActionError("");try{await returnEntireOrderToPool(orderId);await refresh(true);setReleasedIds(readReleasedIds());setSelected(current=>current.filter(id=>id!==orderId));}catch(error){setActionError(error instanceof Error?error.message:"Return failed.");}finally{setReturning("");}};
 
-  useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get("stage");if(requested && flow.includes(requested as Stage))setStage(requested);if(params.get("view")==="in-production")setProductionOnly(true);if(params.has("stage")||params.get("view")){requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}));}},[]);
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get("stage");if(requested && flow.includes(requested as Stage))setStage(requested);if(params.get("view")==="in-production")setProductionOnly(true);if(params.get("view")==="completed-today")setCompletedTodayOnly(true);if(params.has("stage")||params.get("view")){requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}));}},[]);
 
   useEffect(()=>{
     const context=(document as Document & {modelContext?:{registerTool:(tool:unknown,options?:{signal?:AbortSignal})=>void|Promise<void>}}).modelContext;
@@ -110,7 +113,7 @@ export default function Home() {
       execute(input:unknown){
         const orderId=(input as {orderId?:unknown})?.orderId;
         if(typeof orderId!=="string")throw new Error("orderId must be a string");
-        const order=orders.find(item=>item.id===orderId);
+        const order=readReleasedProductionOrders().find(item=>item.id===orderId);
         if(!order)throw new Error("Order not found");
         window.location.assign(`/orders/${encodeURIComponent(order.id)}`);
         return {orderId:order.id,stage:order.stage,product:order.product};
@@ -123,7 +126,7 @@ export default function Home() {
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
       <SidebarHeader className="brand"><Link href="/"><Image src="/rescro-logo.png" alt="RESCRO" width={166} height={52} priority/></Link></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.filter(([,label])=>label==="Dashboard"?can("View Dashboard"):label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?can("View Order Pool")||can("View Factory Control Center"):label==="Audit Logs"?can("View Audit Logs"):label==="User Management"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.filter(([,label])=>label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
       <SidebarFooter><button className="profile auth-profile" onClick={()=>void logout()} title="Log out"><span><UserRound/></span><span><b>{user?.name??"Account"}</b><small>{user?.role??""} · Log out</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
@@ -138,22 +141,22 @@ export default function Home() {
         <MetricCard label="TOTAL ORDERS" value={productionOrders.length} hint="Released orders in system" percent={pct(finished)} color="#161616" icon={Box}/>
         <MetricCard label="NOT STARTED ORDERS" value={notStarted} hint="Waiting for Mesh" percent={pct(notStarted)} color="#353535" icon={Clock3}/>
         <MetricCard label="ORDERS IN PRODUCTION" value={production} hint="Including Packed" percent={pct(production)} color="#515151" icon={CircleGauge}/>
-        <MetricCard label="FINISHED ORDERS" value={finished} hint="Manually finished" percent={pct(finished)} color="#707070" icon={CheckCircle2}/>
+        <MetricCard label="FINISHED ORDERS" value={finished} hint="Production completed" percent={pct(finished)} color="#707070" icon={CheckCircle2}/>
       </section>
       <Card className="flow-card">
         <div className="section-heading"><div><h2>PRODUCTION FLOW</h2><p>Track orders as they move through the production process</p></div><Activity/></div>
         <div className="flow">{flow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${item} orders`}>
           <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<flow.length-1&&<i/>}</div><b>{index+1}</b><strong>{item}</strong><small>{lastLabel[item]}</small>
         </button>})}</div>
-        <div className="notice"><ShieldCheck/> Packed orders are not automatically finished. An authorized admin must finish them manually.</div>
+        <div className="notice"><ShieldCheck/> Selected items move through station queues. Packaging completion finishes the item.</div>
       </Card>
-      <Card className="orders-card" id="orders-table">
+      <ProductionNotice/>{actionError&&<p className="auth-error" role="alert">{actionError}</p>}<Card className="orders-card" id="orders-table">
         <div className="filters">
           <label><span>Search Order</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by order or customer..."/></div></label>
           <label><span>Store</span><Select value={store} onValueChange={setStore}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stores</SelectItem>{[".nl",".de",".fr",".dk",".uk",".es",".pl"].map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
           <label><span>Status / Stage</span><Select value={stage} onValueChange={setStage}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stages</SelectItem>{flow.map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
           <Button variant="outline" className="filter-button"><Filter/> Filters</Button>
-          <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all")}}><RefreshCw/> Reset</Button>
+          <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all");setProductionOnly(false);setCompletedTodayOnly(false)}}><RefreshCw/> Reset</Button>
         </div>
         <div className="table-wrap"><Table>
           <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all visible orders"/></TableHead><TableHead>Order Number</TableHead><TableHead>Customer</TableHead><TableHead>Order Date</TableHead><TableHead>Store</TableHead><TableHead>Status / Stage</TableHead><TableHead>Risk</TableHead><TableHead>Last Completed Stage</TableHead><TableHead>ETA</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
@@ -161,7 +164,7 @@ export default function Home() {
             <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={`Select ${order.id}`}/></TableCell>
             <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell><TableCell><RiskBadge risk={order.risk}/></TableCell>
             <TableCell><span className="last-stage" style={{"--dot":stageConfig[order.stage].color} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{order.eta}</Badge></TableCell>
-            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link><Button variant="outline" size="sm" onClick={()=>returnOrderToPool(order.id)}><Undo2/> Return</Button><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
+            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link>{user?.role==="Admin"&&<Button variant="outline" size="sm" disabled={Boolean(returning)} onClick={()=>void returnOrderToPool(order.id)}><Undo2/> {returning===order.id?"Returning…":"Return"}</Button>}<Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
         </Table>{filtered.length===0&&<div className="empty"><Search/><b>No orders found</b><span>Try changing your search or filters.</span></div>}</div>
         <footer className="pagination"><span>Showing {filtered.length} of {productionOrders.length} released orders</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>

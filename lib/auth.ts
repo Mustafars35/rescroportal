@@ -91,6 +91,7 @@ export function permissionForPath(path: string): Permission | null {
   if (path.startsWith("/shipping")) return "View Shipping";
   if (path.startsWith("/stock-management")) return "View Stock";
   // The current Factory Control Center route hosts the Order Pool workspace.
+  if (path.startsWith("/daily-production")) return "View Daily Production";
   if (path.startsWith("/factory-control-center")) return "View Order Pool";
   if (path.startsWith("/pool")) return "View Order Pool";
   if (path.startsWith("/orders")) return "View All Orders";
