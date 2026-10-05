@@ -99,10 +99,30 @@ export function permissionForPath(path: string): Permission | null {
 }
 export async function authenticate(username: string, password: string) {
   await ensureAuthSchema();
+  await applyConfiguredAdminRecovery(username, password);
   const rows = await sql()`SELECT id,name,username,password_hash,role,active,permissions,created_at FROM portal_users WHERE username=${normalizeUsername(username)} LIMIT 1`;
   const row = rows[0] as Record<string, unknown> | undefined;
   if (!row || !Boolean(row.active) || !(await verifyPassword(password, String(row.password_hash)))) return null;
   return toUser(row);
+}
+
+// A one-time, operator-configured recovery. Only a password matching the
+// configured salted hash can consume it; the audit ID prevents replay.
+async function applyConfiguredAdminRecovery(username: string, password: string) {
+  const configuration = process.env.RESCRO_ADMIN_RECOVERY;
+  if (!configuration) return;
+  const recovery = JSON.parse(configuration) as { id: string; username: string; passwordHash: string };
+  if (!/^[a-f0-9]{32}$/.test(recovery.id) || normalizeUsername(username) !== recovery.username || !(await verifyPassword(password, recovery.passwordHash))) return;
+  const db = sql();
+  await db`WITH claimed AS (
+    INSERT INTO portal_audit_logs (id,actor_user_id,actor_name,action,entity_type,entity_id,details)
+    SELECT ${'recovery-' + recovery.id},id,name,'admin_password_recovered','user',id,'{"source":"authorized_operator_recovery"}'::jsonb
+    FROM portal_users WHERE username=${recovery.username} AND role='Admin' AND active=TRUE
+    ON CONFLICT (id) DO NOTHING RETURNING actor_user_id
+  ), updated AS (
+    UPDATE portal_users SET password_hash=${recovery.passwordHash},updated_at=NOW()
+    FROM claimed WHERE portal_users.id=claimed.actor_user_id RETURNING portal_users.id
+  ) DELETE FROM portal_sessions WHERE user_id IN (SELECT id FROM updated)`;
 }
 export async function createPortalUser(input: { name: string; username: string; password: string; role: Role; active: boolean; permissions: Permission[] }) {
   const db = sql();
