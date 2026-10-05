@@ -8,7 +8,7 @@ import {
   CircleGauge, ClipboardList, Clock3, Download, Eye, Factory, FileClock,
   FileSpreadsheet, Filter, Frame, Globe2, Hammer, LayoutDashboard, Menu,
   MoreHorizontal, PackageCheck, Plus, RefreshCw, Search, Settings,
-  ShieldCheck, UserRound, UsersRound, Grid3X3, Link2, PackageOpen, Wrench, Warehouse, Truck, Gauge, Undo2,
+  ShieldCheck, UserRound, UsersRound, Grid3X3, Link2, PackageOpen, Wrench, Warehouse, Truck, Gauge,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { orders, stages as flow, type Stage } from "@/lib/orders";
-import { readReleasedIds, readReleasedProductionOrders, returnEntireOrderToPool } from "@/lib/release";
+import { readReleasedIds, readReleasedProductionOrders } from "@/lib/release";
 import { useProduction, ProductionNotice } from "@/components/production-provider";
 import { completedOrderDate } from "@/lib/production-model";
 import { useAuth } from "@/components/auth-provider";
@@ -65,7 +65,7 @@ function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge clas
 
 export default function Home() {
   const {user,can,logout}=useAuth();
-  const {snapshot,refresh}=useProduction(); const [actionError,setActionError]=useState(""); const [returning,setReturning]=useState(""); const [completedTodayOnly,setCompletedTodayOnly]=useState(false);
+  const {snapshot}=useProduction(); const [completedTodayOnly,setCompletedTodayOnly]=useState(false);
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all"); const [productionOnly,setProductionOnly]=useState(false);
   const [releasedIds,setReleasedIds]=useState(()=>new Set<string>());
   const [selected,setSelected]=useState<string[]>([]);
@@ -80,7 +80,7 @@ export default function Home() {
   const production=productionOrders.length-finished-notStarted; const pct=(v:number)=>productionOrders.length?v/productionOrders.length*100:0;
   const allSelected=filtered.length>0&&filtered.every(o=>selected.includes(o.id));
   const toggleAll=()=>setSelected(allSelected?selected.filter(id=>!filtered.some(o=>o.id===id)):Array.from(new Set([...selected,...filtered.map(o=>o.id)])));
-  const returnOrderToPool=async(orderId:string)=>{if(returning)return;setReturning(orderId);setActionError("");try{await returnEntireOrderToPool(orderId);await refresh(true);setReleasedIds(readReleasedIds());setSelected(current=>current.filter(id=>id!==orderId));}catch(error){setActionError(error instanceof Error?error.message:"Return failed.");}finally{setReturning("");}};
+
 
   useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get("stage");if(requested && flow.includes(requested as Stage))setStage(requested);if(params.get("view")==="in-production")setProductionOnly(true);if(params.get("view")==="completed-today")setCompletedTodayOnly(true);if(params.has("stage")||params.get("view")){requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}));}},[]);
 
@@ -150,7 +150,7 @@ export default function Home() {
         </button>})}</div>
         <div className="notice"><ShieldCheck/> Selected items move through station queues. Packaging completion finishes the item.</div>
       </Card>
-      <ProductionNotice/>{actionError&&<p className="auth-error" role="alert">{actionError}</p>}<Card className="orders-card" id="orders-table">
+      <ProductionNotice/><Card className="orders-card" id="orders-table">
         <div className="filters">
           <label><span>Search Order</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by order or customer..."/></div></label>
           <label><span>Store</span><Select value={store} onValueChange={setStore}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stores</SelectItem>{[".nl",".de",".fr",".dk",".uk",".es",".pl"].map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
@@ -164,7 +164,7 @@ export default function Home() {
             <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={`Select ${order.id}`}/></TableCell>
             <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell><TableCell><RiskBadge risk={order.risk}/></TableCell>
             <TableCell><span className="last-stage" style={{"--dot":stageConfig[order.stage].color} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{order.eta}</Badge></TableCell>
-            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link>{user?.role==="Admin"&&<Button variant="outline" size="sm" disabled={Boolean(returning)} onClick={()=>void returnOrderToPool(order.id)}><Undo2/> {returning===order.id?"Returning…":"Return"}</Button>}<Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
+            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
         </Table>{filtered.length===0&&<div className="empty"><Search/><b>No orders found</b><span>Try changing your search or filters.</span></div>}</div>
         <footer className="pagination"><span>Showing {filtered.length} of {productionOrders.length} released orders</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>

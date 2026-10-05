@@ -16,7 +16,8 @@ export async function proxy(request: NextRequest) {
     if ((path.startsWith("/factory-control-center") || path.startsWith("/pool")) && user.role !== "Admin") return NextResponse.redirect(new URL("/unauthorized", request.url));
     if (path === "/" && !hasPermission(user,"View Dashboard") && hasPermission(user,"View Daily Production")) return NextResponse.redirect(new URL("/daily-production",request.url));
     const permission = permissionForPath(path);
-    if (permission && !hasPermission(user, permission)) {
+    const stationDetail = path.startsWith("/orders/") && request.nextUrl.searchParams.get("mode")==="work" && hasPermission(user,"View Daily Production");
+    if (permission && !hasPermission(user, permission) && !stationDetail) {
       if (path.startsWith("/api/")) return NextResponse.json({ error: "Permission denied." }, { status: 403 });
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
