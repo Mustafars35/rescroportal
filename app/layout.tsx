@@ -6,6 +6,7 @@ import "./release.css";
 import "./pool-table.css";
 import "./pool-extra.css";
 import "./pool-flow-fix.css";
+import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
   title: "RESCRO Production Portal",
@@ -23,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }

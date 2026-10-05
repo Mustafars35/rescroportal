@@ -25,6 +25,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { orders, stages as flow, type Stage } from "@/lib/orders";
 import { readReleasedIds, readReleasedProductionOrders, returnEntireOrderToPool } from "@/lib/release";
+import { useAuth } from "@/components/auth-provider";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
   "Waiting for Mesh":{color:"#C00000",soft:"#ffffff",icon:Grid3X3},
@@ -61,6 +62,7 @@ function StageBadge({stage}:{stage:Stage}) {
 function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge className={`risk-badge ${risk.toLowerCase()}`}><i/>{risk}</Badge>; }
 
 export default function Home() {
+  const {user,can,logout}=useAuth();
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all"); const [productionOnly,setProductionOnly]=useState(false);
   const [releasedIds,setReleasedIds]=useState(()=>new Set<string>());
   const [selected,setSelected]=useState<string[]>([]);
@@ -121,9 +123,9 @@ export default function Home() {
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
       <SidebarHeader className="brand"><Link href="/"><Image src="/rescro-logo.png" alt="RESCRO" width={166} height={52} priority/></Link></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.filter(([,label])=>label==="Dashboard"?can("View Dashboard"):label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?can("View Order Pool")||can("View Factory Control Center"):label==="Audit Logs"?can("View Audit Logs"):label==="User Management"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
-      <SidebarFooter><button className="profile"><span><UserRound/></span><span><b>Admin</b><small>Super Admin</small></span><ChevronRight/></button></SidebarFooter>
+      <SidebarFooter><button className="profile auth-profile" onClick={()=>void logout()} title="Log out"><span><UserRound/></span><span><b>{user?.name??"Account"}</b><small>{user?.role??""} · Log out</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
 
     <SidebarInset><main className="portal-shell">
