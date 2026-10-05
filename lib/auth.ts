@@ -114,6 +114,12 @@ async function applyConfiguredAdminRecovery(username: string, password: string) 
   const recovery = JSON.parse(configuration) as { id: string; username: string; passwordHash: string };
   if (!/^[a-f0-9]{32}$/.test(recovery.id) || normalizeUsername(username) !== recovery.username || !(await verifyPassword(password, recovery.passwordHash))) return;
   const db = sql();
+  // Preview databases can branch independently from production. Provision the
+  // authorized Admin only when this database has no accounts at all.
+  await db`INSERT INTO portal_users (id,name,username,password_hash,role,active,permissions)
+    SELECT ${recovery.id},'Mustafa',${recovery.username},${recovery.passwordHash},'Admin',TRUE,${JSON.stringify([...permissions])}::jsonb
+    WHERE NOT EXISTS (SELECT 1 FROM portal_users)
+    ON CONFLICT (username) DO NOTHING`;
   await db`WITH claimed AS (
     INSERT INTO portal_audit_logs (id,actor_user_id,actor_name,action,entity_type,entity_id,details)
     SELECT ${'recovery-' + recovery.id},id,name,'admin_password_recovered','user',id,'{"source":"authorized_operator_recovery"}'::jsonb
