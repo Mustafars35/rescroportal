@@ -10,13 +10,13 @@ test('shared database: partial release, all stations, reports, logs, whole-order
  const auth=load('lib/auth.ts');const server=load('lib/production-server.ts');const model=load('lib/production-model.ts');const route=load('app/api/production/route.ts');
  await auth.ensureAuthSchema();await database.query("INSERT INTO portal_users(id,name,username,password_hash,role) VALUES ('admin','Admin','admin','test','Admin'),('mesh','Furkan','mesh','test','Mesh')");
  const admin={id:'admin',name:'Admin',role:'Admin',permissions:[],active:true};const mesh={id:'mesh',name:'Furkan',role:'Mesh',permissions:['View Daily Production','Complete Mesh'],active:true};
- await server.ensureProductionSchema();let state=await server.productionSnapshot();assert.equal(state.orders.length,500);assert.equal(state.items.length,0);
+ await server.ensureProductionSchema();let state=await server.productionSnapshot();assert.equal(state.orders.length,load('lib/order-pool.ts').poolOrders.length);assert.ok(state.orders.every(order=>order.items.every(item=>item.manufactured&&!/easyclick/i.test(item.name))));assert.equal(state.items.length,0);
  const parent=state.orders.find(order=>order.items.length>=3&&order.items.filter(item=>item.manufactured).length>=2);const chosen=parent.items.filter(item=>item.manufactured).slice(0,2);const selected=chosen.map(item=>item.id);const quantity=chosen.reduce((sum,item)=>sum+item.quantity,0);
  await t.test('partial release retains full original order, excludes unselected items and creates one parent',async()=>{
   await server.releaseProduction(selected,admin);state=await server.productionSnapshot();assert.equal(state.items.length,2);assert.equal(model.aggregateOrders(state.items).length,1);assert.equal(model.aggregateOrders(state.items)[0].id,parent.id);assert.equal(state.orders.find(order=>order.id===parent.id).items.length,parent.items.length);
   await assert.rejects(server.releaseProduction(selected,admin),/CONFLICT/);assert.equal((await server.productionSnapshot()).items.length,2);
   const other=state.orders.find(order=>order.id!==parent.id&&order.items.some(item=>item.manufactured));const otherId=other.items.find(item=>item.manufactured).id;await assert.rejects(server.releaseProduction([selected[0],otherId],admin),/CONFLICT/);assert.equal((await server.productionSnapshot()).items.length,2);
-  const excluded=state.orders.flatMap(order=>order.items).find(item=>!item.manufactured);await assert.rejects(server.releaseProduction([excluded.id],admin),/CONFLICT/);
+  await assert.rejects(server.releaseProduction(['removed-external-item'],admin),/CONFLICT/);
  });
  await t.test('no unauthorized release, return or cross-station completion; no writes without JSON or from foreign origin',async()=>{
   currentUser=mesh;const post=body=>route.POST(new Request('https://rescro.test/api/production',{method:'POST',headers:{'content-type':'application/json',origin:'https://rescro.test'},body:JSON.stringify(body)}));
@@ -51,6 +51,21 @@ test('shared database: partial release, all stations, reports, logs, whole-order
   await server.returnProduction(parent.id,admin);state=await server.productionSnapshot();assert.equal(state.items.length,0);assert.equal(state.orders.find(order=>order.id===parent.id).items.length,parent.items.length);assert.ok(state.events.some(event=>event.action==='returned'));
   await assert.rejects(server.returnProduction(parent.id,admin),/CONFLICT/);await assert.rejects(server.completeProduction(selected[0],'Mesh',mesh,1),/CONFLICT/);
   await server.releaseProduction([selected[0]],admin);state=await server.productionSnapshot();assert.equal(state.items.length,1);assert.equal(state.items[0].run,2);assert.equal(state.items[0].stage,'Waiting for Mesh');assert.equal(model.aggregateOrders(state.items).length,1);await assert.rejects(server.completeProduction(selected[0],'Mesh',mesh,1),/CONFLICT/);await server.completeProduction(selected[0],'Mesh',mesh,2);
+ });
+ await t.test('archives external items from active orders without deleting source data or changing production state',async()=>{
+  const external={id:'external-demo',name:'Easyclick',quantity:1,color:'White',manufactured:false};
+  await database.query("INSERT INTO portal_production_items(id,order_id,data) VALUES ($1,$2,$3)",[external.id,parent.id,JSON.stringify(external)]);
+  await database.query("UPDATE portal_production_orders SET data=jsonb_set(data,'{items}',(data->'items') || $1::jsonb) WHERE id=$2",[JSON.stringify([external]),parent.id]);
+  const externalOnly={id:'EXTERNAL-ONLY',date:parent.date,customer:parent.customer,items:[{...external,id:'external-only-item',name:'Purchased accessory'}]};
+  await database.query("INSERT INTO portal_production_orders(id,data) VALUES ($1,$2)",[externalOnly.id,JSON.stringify(externalOnly)]);
+  await database.query("INSERT INTO portal_production_items(id,order_id,data) VALUES ($1,$2,$3)",[externalOnly.items[0].id,externalOnly.id,JSON.stringify(externalOnly.items[0])]);
+  const before=await server.productionSnapshot();
+  await server.archiveNonManufacturedItems();await server.archiveNonManufacturedItems();state=await server.productionSnapshot();
+  assert.deepEqual(state.items,before.items);assert.deepEqual(state.events,before.events);
+  const archived=await database.query("SELECT id FROM portal_production_items WHERE excluded");assert.equal(archived.rows.length,2);
+  assert.equal((await database.query("SELECT id FROM portal_production_orders WHERE id=$1",[externalOnly.id])).rows.length,1);
+  assert.ok(!state.orders.some(order=>order.id===externalOnly.id));assert.equal(state.orders.find(order=>order.id===parent.id).items.length,parent.items.length);
+  assert.ok(state.orders.every(order=>order.items.every(item=>item.manufactured)));
  });
  await database.close();
 });

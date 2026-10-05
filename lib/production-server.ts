@@ -16,6 +16,7 @@ async function initialize() {
   await db`CREATE TABLE IF NOT EXISTS portal_production_orders (id TEXT PRIMARY KEY, data JSONB NOT NULL, location TEXT NOT NULL DEFAULT 'pool' CHECK(location IN ('pool','production')), run INTEGER NOT NULL DEFAULT 0, released_at TIMESTAMPTZ, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
   await db`CREATE TABLE IF NOT EXISTS portal_production_items (id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES portal_production_orders(id), data JSONB NOT NULL, selected BOOLEAN NOT NULL DEFAULT FALSE, stage TEXT NOT NULL DEFAULT 'Waiting for Mesh', stage_entered_at TIMESTAMPTZ, completed_at TIMESTAMPTZ)`;
   await db`ALTER TABLE portal_production_items ADD COLUMN IF NOT EXISTS station_done BOOLEAN NOT NULL DEFAULT FALSE`;
+  await db`ALTER TABLE portal_production_items ADD COLUMN IF NOT EXISTS excluded BOOLEAN NOT NULL DEFAULT FALSE`;
   await db`CREATE INDEX IF NOT EXISTS portal_production_items_queue_idx ON portal_production_items(stage,selected,order_id)`;
   await db`CREATE TABLE IF NOT EXISTS portal_production_events (id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES portal_production_orders(id), item_id TEXT REFERENCES portal_production_items(id), station TEXT NOT NULL, action TEXT NOT NULL, quantity INTEGER NOT NULL, actor_user_id TEXT REFERENCES portal_users(id) ON DELETE SET NULL, actor_name TEXT NOT NULL, run INTEGER NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
   await db`CREATE INDEX IF NOT EXISTS portal_production_events_date_idx ON portal_production_events(created_at,station)`;
@@ -25,14 +26,20 @@ async function initialize() {
   ) INSERT INTO portal_production_items(id,order_id,data)
     SELECT item->>'id',source.data->>'id',item FROM source CROSS JOIN LATERAL jsonb_array_elements(source.data->'items') item
     WHERE (SELECT COUNT(*) FROM inserted)>=0 ON CONFLICT(id) DO NOTHING`;
+  await archiveNonManufacturedItems();
+}
+// Remove external products from active inventory while retaining source data and logs.
+export async function archiveNonManufacturedItems() {
+  const db=database();
+  await db`UPDATE portal_production_items SET excluded=TRUE WHERE NOT excluded AND (data->>'manufactured'='false' OR lower(data->>'name') LIKE '%easyclick%')`;
 }
 export async function productionSnapshot():Promise<ProductionSnapshot> {
   await ensureProductionSchema();const db=database();
   // One SQL statement gives all three lists the same database snapshot.
   const [row]=await db`SELECT
-    (SELECT COALESCE(jsonb_agg(data ORDER BY id),'[]'::jsonb) FROM portal_production_orders) AS orders,
-    (SELECT COALESCE(jsonb_agg(jsonb_build_object('data',i.data,'order_id',i.order_id,'order_data',o.data,'stage',i.stage,'released_at',o.released_at,'stage_entered_at',i.stage_entered_at,'completed_at',i.completed_at,'run',o.run,'station_done',i.station_done) ORDER BY o.released_at,i.id),'[]'::jsonb) FROM portal_production_items i JOIN portal_production_orders o ON o.id=i.order_id WHERE i.selected AND o.location='production') AS items,
-    (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',id,'order_id',order_id,'item_id',item_id,'station',station,'action',action,'quantity',quantity,'actor_user_id',actor_user_id,'actor_name',actor_name,'created_at',created_at,'run',run) ORDER BY created_at),'[]'::jsonb) FROM portal_production_events) AS events, NOW() AS updated_at`;
+    (SELECT COALESCE(jsonb_agg(jsonb_set(o.data,'{items}',(SELECT jsonb_agg(i.data ORDER BY i.id) FROM portal_production_items i WHERE i.order_id=o.id AND NOT i.excluded)) ORDER BY o.id),'[]'::jsonb) FROM portal_production_orders o WHERE EXISTS(SELECT 1 FROM portal_production_items i WHERE i.order_id=o.id AND NOT i.excluded)) AS orders,
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('data',i.data,'order_id',i.order_id,'order_data',o.data,'stage',i.stage,'released_at',o.released_at,'stage_entered_at',i.stage_entered_at,'completed_at',i.completed_at,'run',o.run,'station_done',i.station_done) ORDER BY o.released_at,i.id),'[]'::jsonb) FROM portal_production_items i JOIN portal_production_orders o ON o.id=i.order_id WHERE i.selected AND NOT i.excluded AND o.location='production') AS items,
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',id,'order_id',order_id,'item_id',item_id,'station',station,'action',action,'quantity',quantity,'actor_user_id',actor_user_id,'actor_name',actor_name,'created_at',created_at,'run',run) ORDER BY created_at),'[]'::jsonb) FROM portal_production_events e WHERE e.item_id IS NULL OR NOT EXISTS(SELECT 1 FROM portal_production_items i WHERE i.id=e.item_id AND i.excluded)) AS events, NOW() AS updated_at`;
   const items=(row.items as Record<string,unknown>[]).map(value=>{const parent=value.order_data as PoolOrder;return {...value.data as ProductionItem,orderId:String(value.order_id),orderDate:parent.date,customer:parent.customer,stage:value.stage as Stage,releasedAt:String(value.released_at),stageEnteredAt:String(value.stage_entered_at),completedAt:value.completed_at?String(value.completed_at):null,run:Number(value.run),stationCompleted:Boolean(value.station_done)};});
   const events=(row.events as Record<string,unknown>[]).map(value=>({id:String(value.id),orderId:String(value.order_id),itemId:value.item_id?String(value.item_id):null,station:value.station as Stage,action:value.action as ProductionEvent['action'],quantity:Number(value.quantity),userId:value.actor_user_id?String(value.actor_user_id):null,userName:String(value.actor_name),at:String(value.created_at),run:Number(value.run)}));
   return {orders:row.orders as PoolOrder[],items,events,updatedAt:String(row.updated_at)};
@@ -42,7 +49,7 @@ export async function releaseProduction(itemIds:string[],actor:SessionUser) {
   const result=await db`WITH requested AS (SELECT DISTINCT value AS id FROM jsonb_array_elements_text(${JSON.stringify(itemIds)}::jsonb)), locked AS MATERIALIZED (
     SELECT o.id,o.location FROM portal_production_orders o WHERE o.id IN(SELECT i.order_id FROM portal_production_items i JOIN requested r ON r.id=i.id) ORDER BY o.id FOR UPDATE
   ), valid AS (
-    SELECT i.id,i.order_id FROM portal_production_items i JOIN requested r ON r.id=i.id JOIN locked o ON o.id=i.order_id WHERE o.location='pool' AND (i.data->>'manufactured')::boolean
+    SELECT i.id,i.order_id FROM portal_production_items i JOIN requested r ON r.id=i.id JOIN locked o ON o.id=i.order_id WHERE o.location='pool' AND NOT i.excluded AND (i.data->>'manufactured')::boolean
   ), moved AS (
     UPDATE portal_production_orders o SET location='production',run=run+1,released_at=NOW(),updated_at=NOW()
     WHERE o.id IN(SELECT order_id FROM valid) AND o.location='pool' AND (SELECT COUNT(*) FROM valid)=(SELECT COUNT(*) FROM requested) RETURNING o.id,o.run
@@ -64,13 +71,13 @@ export async function completeProduction(itemId:string,station:WorkStation,actor
   const [,result]=await db.transaction([db`SELECT o.id FROM portal_production_orders o JOIN portal_production_items i ON i.order_id=o.id WHERE i.id=${itemId} FOR UPDATE OF o`,db`WITH locked AS MATERIALIZED (
     SELECT o.id,o.run FROM portal_production_orders o JOIN portal_production_items i ON i.order_id=o.id WHERE i.id=${itemId} AND o.location='production' AND o.run=${run} FOR UPDATE OF o
   ), eligible AS MATERIALIZED (
-    SELECT i.id,i.order_id,o.run,NOT EXISTS(SELECT 1 FROM portal_production_items sibling WHERE sibling.order_id=i.order_id AND sibling.selected AND sibling.id<>i.id AND (sibling.stage<>${expected} OR NOT sibling.station_done)) AS ready
-    FROM portal_production_items i JOIN locked o ON o.id=i.order_id WHERE i.id=${itemId} AND i.selected AND i.stage=${expected} AND NOT i.station_done
+    SELECT i.id,i.order_id,o.run,NOT EXISTS(SELECT 1 FROM portal_production_items sibling WHERE sibling.order_id=i.order_id AND sibling.selected AND NOT sibling.excluded AND sibling.id<>i.id AND (sibling.stage<>${expected} OR NOT sibling.station_done)) AS ready
+    FROM portal_production_items i JOIN locked o ON o.id=i.order_id WHERE i.id=${itemId} AND i.selected AND NOT i.excluded AND i.stage=${expected} AND NOT i.station_done
   ), changed AS (
     UPDATE portal_production_items i SET stage=CASE WHEN e.ready THEN ${next} ELSE i.stage END,
       station_done=NOT e.ready,stage_entered_at=CASE WHEN e.ready THEN NOW() ELSE i.stage_entered_at END,
       completed_at=CASE WHEN e.ready AND ${next}='Finished' THEN NOW() ELSE i.completed_at END
-    FROM eligible e WHERE i.order_id=e.order_id AND i.selected AND (e.ready OR i.id=e.id) RETURNING i.id,i.order_id,i.data,e.run,e.ready
+    FROM eligible e WHERE i.order_id=e.order_id AND i.selected AND NOT i.excluded AND (e.ready OR i.id=e.id) RETURNING i.id,i.order_id,i.data,e.run,e.ready
   ), event_source AS (
     SELECT c.*,${expected}::text AS station FROM changed c WHERE c.id=${itemId}
     UNION ALL SELECT c.*,'Packed' FROM changed c WHERE c.ready AND ${next}='Finished'
