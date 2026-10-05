@@ -14,7 +14,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (body.permissions?.some(value => !permissions.includes(value))) return NextResponse.json({ error: "Invalid permission." }, { status: 400 });
     const user = await updatePortalUser(id, body); if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 });
     await writeAudit(actor, "user_updated", "user", id, { fields: Object.keys(body) });
-    return NextResponse.json({ user });
+    const reauthenticationRequired = id === actor.id && Boolean(body.password || body.role || body.permissions || body.active === false);
+    const response = NextResponse.json({ user, reauthenticationRequired });
+    if (reauthenticationRequired) response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 0 });
+    return response;
   } catch (error) { if (error instanceof Error && error.message === "LAST_ACTIVE_ADMIN") return NextResponse.json({ error: "The last active Admin cannot be demoted or deactivated." }, { status: 409 }); console.error("User update failed", error); return NextResponse.json({ error: "User could not be updated." }, { status: 503 }); }
 }
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
