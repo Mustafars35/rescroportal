@@ -50,7 +50,7 @@ function MetricCard({label,value,hint,percent,color,icon:Icon}:{label:string;val
 }
 
 function StageBadge({stage}:{stage:Stage|"Not Started"}) {
-  if(stage==="Not Started")return <Badge className="stage-badge"><Clock3/> Production Status: Not Started</Badge>;
+  if(stage==="Not Started")return <Badge variant="secondary" className="stage-badge" style={{color:"#374151",background:"#f1f5f9"}}><Clock3/> Not Started</Badge>;
   const config=stageConfig[stage]; const Icon=config.icon;
   return <Badge className="stage-badge" style={{color:config.color,background:config.soft}}><Icon/>{stage}</Badge>;
 }
@@ -64,7 +64,7 @@ export default function Home() {
   const [selected,setSelected]=useState<string[]>([]);
   const productionOrders=useMemo(()=>dashboardOrders(snapshot),[snapshot]);
   const filtered=useMemo(()=>productionOrders.filter(o=>
-    `${o.id} ${o.customer}`.toLowerCase().includes(query.toLowerCase()) &&
+    `${o.id} ${o.customer} ${o.stage}`.toLowerCase().includes(query.toLowerCase()) &&
     (store==="all"||o.store===store) && (stage==="all"||o.stage===stage) && (!productionOnly || (o.stage!=="Finished"&&o.stage!=="Not Started")) && (!completedTodayOnly || completedOrderDate(snapshot.items.filter(item=>item.orderId===o.id))===new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()))
   ),[query,store,stage,productionOnly,productionOrders,snapshot,completedTodayOnly]);
   const finished=productionOrders.filter(o=>o.stage==="Finished").length;
@@ -144,9 +144,9 @@ export default function Home() {
       </Card>
       <ProductionNotice/><Card className="orders-card" id="orders-table">
         <div className="filters">
-          <label><span>Search Order</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by order or customer..."/></div></label>
+          <label><span>Search Order</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by order, customer or status..."/></div></label>
           <label><span>Store</span><Select value={store} onValueChange={setStore}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stores</SelectItem>{[".nl",".de",".fr",".dk",".uk",".es",".pl"].map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
-          <label><span>Status / Stage</span><Select value={stage} onValueChange={setStage}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stages</SelectItem><SelectItem value="Not Started">Not Started</SelectItem>{flow.map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
+          <label><span>Status</span><Select value={stage} onValueChange={setStage}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="Not Started">Not Started</SelectItem>{flow.map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
           <Button variant="outline" className="filter-button"><Filter/> Filters</Button>
           <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all");setProductionOnly(false);setCompletedTodayOnly(false)}}><RefreshCw/> Reset</Button>
         </div>
