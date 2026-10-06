@@ -22,7 +22,7 @@ test('shared database: partial release, all stations, reports, logs, whole-order
   currentUser=mesh;const post=body=>route.POST(new Request('https://rescro.test/api/production',{method:'POST',headers:{'content-type':'application/json',origin:'https://rescro.test'},body:JSON.stringify(body)}));
   assert.equal((await post({action:'release',itemIds:selected})).status,403);assert.equal((await post({action:'return',orderId:parent.id})).status,403);assert.equal((await post({action:'complete',itemId:selected[0],station:'Assembly',run:1})).status,403);
   currentUser=admin;assert.equal((await route.POST(new Request('https://rescro.test/api/production',{method:'POST',headers:{'content-type':'application/json',origin:'https://foreign.test'},body:JSON.stringify({action:'release',itemIds:selected})}))).status,403);
-  currentUser={...mesh,permissions:["View Dashboard"]};const visible=await (await route.GET()).json();assert.equal(visible.orders.length,1);assert.equal(visible.orders[0].id,parent.id);
+  currentUser={...mesh,permissions:["View Dashboard"]};const visible=await (await route.GET()).json();assert.equal(visible.orders.length,state.orders.length);assert.ok(visible.orders.some(order=>order.id===parent.id));
   currentUser=null;assert.equal((await route.GET()).status,401);
  });
  await t.test('order waits for every selected item at every station; no item can skip ahead or complete twice',async()=>{
@@ -66,6 +66,22 @@ test('shared database: partial release, all stations, reports, logs, whole-order
   assert.equal((await database.query("SELECT id FROM portal_production_orders WHERE id=$1",[externalOnly.id])).rows.length,1);
   assert.ok(!state.orders.some(order=>order.id===externalOnly.id));assert.equal(state.orders.find(order=>order.id===parent.id).items.length,parent.items.length);
   assert.ok(state.orders.every(order=>order.items.every(item=>item.manufactured)));
+ });
+ await t.test('dashboard includes pool; employee writes require work screen; admin edits and reopens stages',async()=>{
+  const post=body=>route.POST(new Request('https://rescro.test/api/production',{method:'POST',headers:{'content-type':'application/json',origin:'https://rescro.test'},body:JSON.stringify(body)}));
+  currentUser={...mesh,permissions:['View Dashboard','View Daily Production','Complete Mesh']};
+  const visible=await (await route.GET()).json();assert.equal(visible.orders.length,state.orders.length);
+  assert.equal((await post({action:'complete',itemId:selected[0],station:'Mesh',run:2,source:'dashboard'})).status,403);
+  assert.equal((await post({action:'edit',order:parent})).status,403);
+  currentUser=admin;
+  const updated={...state.orders.find(order=>order.id===parent.id),customer:'Updated Customer',items:state.orders.find(order=>order.id===parent.id).items.map((item,i)=>({...item,color:i===0?'RAL 9001':item.color}))};
+  assert.equal((await post({action:'edit',order:updated})).status,200);
+  let after=await server.productionSnapshot();assert.equal(after.orders.find(o=>o.id===parent.id).customer,'Updated Customer');assert.equal(after.items[0].stage,'Cord & Eyelet');
+  assert.equal((await post({action:'pending',itemId:selected[0],station:'Mesh',run:2,source:'dashboard'})).status,200);
+  after=await server.productionSnapshot();assert.equal(after.items[0].stage,'Waiting for Mesh');assert.equal(after.items[0].stationCompleted,false);
+  assert.equal((await post({action:'complete',itemId:selected[0],station:'Mesh',run:2,source:'dashboard'})).status,200);
+  const dashboard=model.dashboardOrders(after);assert.equal(dashboard.length,after.orders.length);assert.equal(new Set(dashboard.map(o=>o.id)).size,dashboard.length);assert.equal(dashboard.filter(o=>o.stage==='Not Started').length,after.orders.length-1);
+  assert.ok((await database.query("SELECT id FROM portal_audit_logs WHERE action='production_stage_pending'")).rows.length);
  });
  await database.close();
 });

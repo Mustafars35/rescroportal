@@ -104,3 +104,36 @@ export async function returnProduction(orderId:string,actor:SessionUser) {
   ) SELECT (SELECT COUNT(*) FROM moved)::int AS count,(SELECT COUNT(*) FROM cleared)::int AS items`;
   if(Number(result[0].count)!==1)throw new Error("CONFLICT: This order is already in the Order Pool.");
 }
+
+export async function pendingProduction(itemId:string,station:WorkStation,actor:SessionUser,run:number) {
+  await ensureProductionSchema();const db=database();const expected=workStage[station];const operation=randomUUID();
+  const [,result]=await db.transaction([db`SELECT o.id FROM portal_production_orders o JOIN portal_production_items i ON i.order_id=o.id WHERE i.id=${itemId} FOR UPDATE OF o`,db`WITH eligible AS MATERIALIZED (
+    SELECT i.id,i.order_id,i.stage,o.run FROM portal_production_items i JOIN portal_production_orders o ON o.id=i.order_id
+    WHERE i.id=${itemId} AND i.selected AND NOT i.excluded AND o.location='production' AND o.run=${run}
+      AND ((i.stage=${expected} AND i.station_done) OR (${actor.role}='Admin' AND i.stage<>${expected}))
+  ), changed AS (
+    UPDATE portal_production_items i SET stage=${expected},station_done=FALSE,stage_entered_at=CASE WHEN i.stage=${expected} THEN i.stage_entered_at ELSE NOW() END,completed_at=NULL
+    FROM eligible e WHERE i.order_id=e.order_id AND i.selected AND NOT i.excluded AND (e.stage<>${expected} OR i.id=e.id) RETURNING i.id,i.order_id,e.run
+  ), audit AS (
+    INSERT INTO portal_audit_logs(id,actor_user_id,actor_name,action,entity_type,entity_id,details)
+    SELECT ${operation},${actor.id},${actor.name},'production_stage_pending','production_item',id,jsonb_build_object('orderNumber',order_id,'station',${station}::text,'run',run) FROM changed WHERE id=${itemId} RETURNING id
+  ) SELECT (SELECT COUNT(*) FROM changed WHERE id=${itemId})::int AS count`]);
+  if(Number(result[0].count)!==1)throw new Error("CONFLICT: This station cannot be reopened. Refresh your queue.");
+}
+
+export async function editProductionOrder(order:PoolOrder,actor:SessionUser) {
+  if(actor.role!=="Admin")throw new Error("Admin required");
+  await ensureProductionSchema();const db=database();const operation=randomUUID();
+  const [result]=await db.transaction([db`WITH locked AS MATERIALIZED (SELECT id FROM portal_production_orders WHERE id=${order.id} FOR UPDATE), valid AS (
+    SELECT id FROM locked WHERE (SELECT COUNT(*) FROM portal_production_items WHERE order_id=${order.id} AND NOT excluded)=${order.items.length}
+    AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(${JSON.stringify(order.items)}::jsonb) item WHERE NOT EXISTS(SELECT 1 FROM portal_production_items i WHERE i.id=item->>'id' AND i.order_id=${order.id} AND NOT i.excluded))
+  ), changed AS (
+    UPDATE portal_production_orders SET data=${JSON.stringify(order)}::jsonb,updated_at=NOW() WHERE id IN(SELECT id FROM valid) RETURNING id
+  ), items AS (
+    UPDATE portal_production_items i SET data=item FROM jsonb_array_elements(${JSON.stringify(order.items)}::jsonb) item WHERE i.order_id IN(SELECT id FROM changed) AND i.id=item->>'id' RETURNING i.id
+  ), audit AS (
+    INSERT INTO portal_audit_logs(id,actor_user_id,actor_name,action,entity_type,entity_id,details)
+    SELECT ${operation},${actor.id},${actor.name},'order_edited','order',id,jsonb_build_object('orderNumber',id) FROM changed RETURNING id
+  ) SELECT (SELECT COUNT(*) FROM changed)::int AS count`]);
+  if(Number(result[0].count)!==1)throw new Error("CONFLICT: Order contents changed. Refresh before editing.");
+}

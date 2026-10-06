@@ -22,7 +22,7 @@ export function ProductionProvider({children}:{children:React.ReactNode}){
     window.addEventListener("rescro-production-refresh",sync);window.addEventListener("focus",sync);document.addEventListener("visibilitychange",focus);
     return()=>{generation.current++;clearInterval(timer);window.removeEventListener("rescro-production-refresh",sync);window.removeEventListener("focus",sync);document.removeEventListener("visibilitychange",focus);};
   },[user,refresh]);
-  const complete=async(itemId:string,station:WorkStation)=>{const response=await fetch("/api/production",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"complete",itemId,station,run:snapshot.items.find(item=>item.id===itemId)?.run})});const result=await response.json();if(!response.ok){await refresh(true);throw new Error(result.error??"Could not complete item.");}await refresh(true);};
+  const complete=async(itemId:string,station:WorkStation)=>{const response=await fetch("/api/production",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"complete",itemId,station,source:"daily-production",run:snapshot.items.find(item=>item.id===itemId)?.run})});const result=await response.json();if(!response.ok){await refresh(true);throw new Error(result.error??"Could not complete item.");}await refresh(true);};
   return <Context.Provider value={{snapshot,loading,error,refresh,complete}}>{children}</Context.Provider>;
 }
 export function useProduction(){const value=useContext(Context);if(!value)throw new Error("Missing production provider");return value;}

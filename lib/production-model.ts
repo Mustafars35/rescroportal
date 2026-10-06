@@ -39,3 +39,14 @@ export function completedOrderDate(items:ProductionItem[]):string|null { return 
 export function stationTotals(events:ProductionEvent[],start:string,end:string) {
   return stages.map(stage=>({stage,value:events.filter(event=>event.action==="completed"&&event.station===stage&&dateKey(event.at)>=start&&dateKey(event.at)<=end).reduce((sum,event)=>sum+event.quantity,0)}));
 }
+
+export type DashboardOrder = Omit<Order,"stage"> & {stage:Stage|"Not Started"};
+export function dashboardOrders(snapshot:ProductionSnapshot):DashboardOrder[] {
+  const active=new Map(aggregateOrders(snapshot.items).map(order=>[order.id,order]));
+  return snapshot.orders.map(order=>active.get(order.id)??{
+    id:order.id,customer:order.customer,date:order.date,store:`.${order.id.slice(0,2).toLowerCase()}`,
+    stage:"Not Started",last:"—",eta:"—",product:order.items.length===1?order.items[0].name:`${order.items.length} items`,
+    color:order.items.length===1?order.items[0].color:"Mixed",width:0,height:0,direction:"Vertical",threshold:"None",
+    quantity:order.items.reduce((sum,item)=>sum+item.quantity,0),ageDays:0,stageEnteredDays:0,risk:"Normal"
+  });
+}
