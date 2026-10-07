@@ -1,4 +1,4 @@
-export type PoolItem={id:string;name:string;quantity:number;color:string;manufactured:boolean;widthMm?:number;heightMm?:number;properties?:string};
+export type PoolItem={id:string;name:string;quantity:number;color:string;manufactured:boolean;widthMm?:number;heightMm?:number;properties?:string;reference?:string};
 export type PoolOrder={id:string;date:string;customer:string;items:PoolItem[]};
 const names=["Plissé Door","Plissé Window","Double Plissé Door","Curtain Screen","Easyclick"];
 const colors=["RAL 7016","Black","White","Anthracite","RAL 9010","Light Grey"];
