@@ -10,7 +10,7 @@ const failure=(error:unknown)=>{const text=error instanceof Error?error.message:
 export async function GET(){try{
   const user=await actor();if(!user)return NextResponse.json({error:"Authentication required."},{status:401});
   const stations=availableStations(user);
-  const global=user.role==="Admin"||hasPermission(user,"View Dashboard")||hasPermission(user,"View All Orders");
+  const global=user.role==="Admin"||hasPermission(user,"View Dashboard")||hasPermission(user,"View All Orders")||hasPermission(user,"Edit Orders");
   if(!global&&!stations.length&&!hasPermission(user,"View Daily Production"))return NextResponse.json({error:"Permission denied."},{status:403});
   const snapshot=await productionSnapshot();
   if(!global){
@@ -36,9 +36,9 @@ export async function POST(request:Request){try{
     if(typeof body.orderId!=="string"||!body.orderId||body.orderId.length>200)return NextResponse.json({error:"Invalid order."},{status:400});
     await returnProduction(body.orderId,user);
   }else if(body.action==="edit"){
-    if(user.role!=="Admin")return NextResponse.json({error:"Only Admin can edit orders."},{status:403});
+    if(user.role!=="Admin"&&!hasPermission(user,"Edit Orders"))return NextResponse.json({error:"Order editing permission required."},{status:403});
     const order=body.order;
-    if(!order||typeof order.id!=="string"||typeof order.customer!=="string"||!order.customer.trim()||order.customer.length>200||typeof order.date!=="string"||!/^\d{2}\/\d{2}\/\d{4}$/.test(order.date)||!Array.isArray(order.items)||!order.items.length||order.items.length>100||new Set(order.items.map((i:{id:string})=>i.id)).size!==order.items.length||order.items.some((i:{id:string;name:string;color:string;quantity:number;manufactured:boolean})=>typeof i.id!=="string"||typeof i.name!=="string"||!i.name.trim()||i.name.length>200||/easyclick/i.test(i.name)||typeof i.color!=="string"||i.color.length>100||!Number.isInteger(i.quantity)||i.quantity<1||i.quantity>10000||i.manufactured!==true))return NextResponse.json({error:"Invalid order details."},{status:400});
+    if(!order||typeof order.id!=="string"||typeof order.customer!=="string"||!order.customer.trim()||order.customer.length>200||typeof order.date!=="string"||!/^\d{2}\/\d{2}\/\d{4}$/.test(order.date)||!Array.isArray(order.items)||!order.items.length||order.items.length>100||new Set(order.items.map((i:{id:string})=>i.id)).size!==order.items.length||order.items.some((i:{id:string;name:string;color:string;quantity:number;manufactured:boolean;widthMm?:number;heightMm?:number;properties?:string})=>typeof i.id!=="string"||typeof i.name!=="string"||!i.name.trim()||i.name.length>200||/easyclick/i.test(i.name)||typeof i.color!=="string"||i.color.length>100||!Number.isInteger(i.quantity)||i.quantity<1||i.quantity>10000||i.manufactured!==true||(i.widthMm!==undefined&&(!Number.isFinite(i.widthMm)||i.widthMm<=0))||(i.heightMm!==undefined&&(!Number.isFinite(i.heightMm)||i.heightMm<=0))||(i.properties!==undefined&&(typeof i.properties!=="string"||i.properties.length>5000))))return NextResponse.json({error:"Invalid order details."},{status:400});
     await editProductionOrder(order,user);
   }else if(body.action==="complete"||body.action==="pending"){
     if(user.role!=="Admin"&&body.source!=="daily-production")return NextResponse.json({error:"Use Daily Production for station updates."},{status:403});

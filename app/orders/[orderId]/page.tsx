@@ -13,7 +13,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const snapshot=await productionSnapshot();
   const order=snapshot.orders.find(item=>item.id===decodeURIComponent(orderId));
   if(!order)notFound();
-  if(user.role!=="Admin"&&!hasPermission(user,"View Dashboard")&&!hasPermission(user,"View All Orders")){
+  if(user.role!=="Admin"&&!hasPermission(user,"View Dashboard")&&!hasPermission(user,"View All Orders")&&!hasPermission(user,"Edit Orders")){
     const stations=availableStations(user);
     if(!hasPermission(user,"View Daily Production")||!snapshot.items.some(item=>item.orderId===order.id&&stations.some(station=>item.stage===workStage[station])))notFound();
   }

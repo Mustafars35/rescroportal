@@ -8,6 +8,7 @@ import "./pool-extra.css";
 import "./pool-flow-fix.css";
 import { ProductionProvider } from "@/components/production-provider";
 import "./daily-production.css";
+import "./factory-requests.css";
 import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {

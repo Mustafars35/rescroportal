@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { randomUUID } from "node:crypto";
 import { ensureAuthSchema, type SessionUser } from "@/lib/auth";
-import { poolOrders, type PoolOrder } from "@/lib/order-pool";
+import { type PoolOrder } from "@/lib/order-pool";
 import { nextWorkStage, workStage, type WorkStation, type ProductionSnapshot, type ProductionItem, type ProductionEvent } from "@/lib/production-model";
 import type { Stage } from "@/lib/orders";
 
@@ -20,13 +20,7 @@ async function initialize() {
   await db`CREATE INDEX IF NOT EXISTS portal_production_items_queue_idx ON portal_production_items(stage,selected,order_id)`;
   await db`CREATE TABLE IF NOT EXISTS portal_production_events (id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES portal_production_orders(id), item_id TEXT REFERENCES portal_production_items(id), station TEXT NOT NULL, action TEXT NOT NULL, quantity INTEGER NOT NULL, actor_user_id TEXT REFERENCES portal_users(id) ON DELETE SET NULL, actor_name TEXT NOT NULL, run INTEGER NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
   await db`CREATE INDEX IF NOT EXISTS portal_production_events_date_idx ON portal_production_events(created_at,station)`;
-  // Idempotent demo import: never overwrites an existing order or its production state.
-  await db`WITH source AS (SELECT value AS data FROM jsonb_array_elements(${JSON.stringify(poolOrders)}::jsonb)), inserted AS (
-    INSERT INTO portal_production_orders(id,data) SELECT data->>'id',data FROM source ON CONFLICT(id) DO NOTHING RETURNING id
-  ) INSERT INTO portal_production_items(id,order_id,data)
-    SELECT item->>'id',source.data->>'id',item FROM source CROSS JOIN LATERAL jsonb_array_elements(source.data->'items') item
-    WHERE (SELECT COUNT(*) FROM inserted)>=0 ON CONFLICT(id) DO NOTHING`;
-  await archiveNonManufacturedItems();
+
 }
 // Remove external products from active inventory while retaining source data and logs.
 export async function archiveNonManufacturedItems() {
@@ -122,7 +116,7 @@ export async function pendingProduction(itemId:string,station:WorkStation,actor:
 }
 
 export async function editProductionOrder(order:PoolOrder,actor:SessionUser) {
-  if(actor.role!=="Admin")throw new Error("Admin required");
+  if(actor.role!=="Admin"&&!actor.permissions.includes("Edit Orders"))throw new Error("Admin or order editing permission required");
   await ensureProductionSchema();const db=database();const operation=randomUUID();
   const [result]=await db.transaction([db`WITH locked AS MATERIALIZED (SELECT id FROM portal_production_orders WHERE id=${order.id} FOR UPDATE), valid AS (
     SELECT id FROM locked WHERE (SELECT COUNT(*) FROM portal_production_items WHERE order_id=${order.id} AND NOT excluded)=${order.items.length}
