@@ -135,7 +135,7 @@ export default function Home() {
     </Sidebar>
 
     <SidebarInset><main className="portal-shell">
-      <header className="topbar">
+      <header className="topbar mb-6">
         <div className="title-wrap"><SidebarTrigger className="mobile-trigger"><Menu/></SidebarTrigger><div><h1>Orders Overview</h1></div></div>
         <div className="top-actions"><Button variant="outline"><RefreshCw/> Sync Store</Button><Button variant="outline"><FileClock/> Audit Logs</Button>{user?.role==="Admin"&&<Button className="create"><Plus/> Create Order</Button>}<Button variant="outline" size="icon" className="round"><UserRound/></Button></div>
       </header>
