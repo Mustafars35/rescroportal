@@ -5,8 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Activity, BarChart3, Box, Boxes, CheckCircle2, ChevronLeft, ChevronRight,
-  CircleGauge, ClipboardList, Clock3, Download, Eye, Factory, FileClock,
-  FileSpreadsheet, Filter, Frame, Globe2, Hammer, LayoutDashboard, Menu,
+  CircleGauge, ClipboardList, Clock3, Eye, Factory, FileClock,
+  Filter, Frame, Hammer, LayoutDashboard, Menu,
   MoreHorizontal, PackageCheck, Plus, RefreshCw, Search, Settings,
   ShieldCheck, UserRound, UsersRound, Grid3X3, Link2, PackageOpen, Wrench, Warehouse, Truck, Gauge,
 } from "lucide-react";
@@ -37,6 +37,17 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Waiting for Packing":{color:"#4472C4",soft:"#ffffff",icon:Box},
   "Packed":{color:"#7030A0",soft:"#ffffff",icon:PackageCheck},
   "Finished":{color:"#C55A8C",soft:"#ffffff",icon:CheckCircle2},
+};
+
+const flowLabels: Record<Stage, string> = {
+  "Waiting for Mesh": "Mesh",
+  "Cord & Eyelet": "Cord & Eyelet",
+  "Waiting for Frame": "Frame",
+  "Waiting for Assembly": "Assembly",
+  "Quality Control": "Quality Control",
+  "Waiting for Packing": "Packaging",
+  "Packed": "Packed",
+  "Finished": "Finished",
 };
 
 const nav = [[LayoutDashboard,"Dashboard","/"],[Factory,"Fabrika Talepleri","/factory-requests"],[Factory,"Daily Production","/daily-production"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/audit-logs"],[UserRound,"User Management","/user-management"],[Settings,"Settings","/"]] as const;
@@ -125,10 +136,10 @@ export default function Home() {
 
     <SidebarInset><main className="portal-shell">
       <header className="topbar">
-        <div className="title-wrap"><SidebarTrigger className="mobile-trigger"><Menu/></SidebarTrigger><div><h1>Orders Overview</h1><p>Real-time overview of all manufacturing orders</p></div></div>
-        <div className="top-actions"><Button variant="outline"><Globe2/> .nl</Button><Button variant="outline"><RefreshCw/> Sync Store</Button><Button variant="outline"><FileClock/> Audit Logs</Button>{user?.role==="Admin"&&<Button className="create"><Plus/> Create Order</Button>}<Button variant="outline" size="icon" className="round"><UserRound/></Button></div>
+        <div className="title-wrap"><SidebarTrigger className="mobile-trigger"><Menu/></SidebarTrigger><div><h1>Orders Overview</h1></div></div>
+        <div className="top-actions"><Button variant="outline"><RefreshCw/> Sync Store</Button><Button variant="outline"><FileClock/> Audit Logs</Button>{user?.role==="Admin"&&<Button className="create"><Plus/> Create Order</Button>}<Button variant="outline" size="icon" className="round"><UserRound/></Button></div>
       </header>
-      <section className="export-row">{selected.length>0&&<span className="selected-count">{selected.length} order{selected.length>1?"s":""} selected</span>}<Button variant="outline"><FileSpreadsheet/> Export Excel</Button><Button variant="outline"><Download/> Export Customs</Button><Button variant="outline"><Download/> Export PDF</Button></section>
+      {selected.length>0&&<section className="export-row"><span className="selected-count">{selected.length} order{selected.length>1?"s":""} selected</span></section>}
       <section className="metrics">
         <MetricCard label="TOTAL ORDERS" value={productionOrders.length} hint="All orders in system" percent={pct(finished)} color="#161616" icon={Box}/>
         <MetricCard label="NOT STARTED ORDERS" value={notStarted} hint="Waiting in Order Pool" percent={pct(notStarted)} color="#353535" icon={Clock3}/>
@@ -137,8 +148,8 @@ export default function Home() {
       </section>
       <Card className="flow-card">
         <div className="section-heading"><div><h2>PRODUCTION FLOW</h2><p>Track orders as they move through the production process</p></div><Activity/></div>
-        <div className="flow">{flow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${item} orders`}>
-          <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<flow.length-1&&<i/>}</div><b>{index+1}</b><strong>{item}</strong><small>{productionOrders.filter(order=>order.stage===item).length}</small>
+        <div className="flow">{flow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${flowLabels[item]} orders`}>
+          <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<flow.length-1&&<i/>}</div><b>{index+1}</b><strong>{flowLabels[item]}</strong><small>{productionOrders.filter(order=>order.stage===item).length}</small>
         </button>})}</div>
         
       </Card>
