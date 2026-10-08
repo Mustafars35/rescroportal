@@ -54,7 +54,20 @@ const flowLabels: Record<Stage, string> = {
   "Finished": "Finished",
 };
 
-const nav = [[LayoutDashboard,"Dashboard","/"],[Factory,"Fabrika Talepleri","/factory-requests"],[Factory,"Daily Production","/daily-production"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/audit-logs"],[UserRound,"User Management","/user-management"],[Settings,"Settings","/"]] as const;
+const nav = [
+  [LayoutDashboard,"Dashboard","/"],
+  [Factory,"Daily Production","/daily-production"],
+  [Factory,"Fabrika Talepleri","/factory-requests"],
+  [Activity,"Delayed & Risk","/delayed-risk"],
+  [Truck,"Shipping","/shipping"],
+  [Warehouse,"Stock Management","/stock-management"],
+  [BarChart3,"Production Overview","/production-overview"],
+  [Gauge,"Live Production","/live-production"],
+  [Factory,"Factory Control Center","/factory-control-center"],
+  [FileClock,"Audit Logs","/audit-logs"],
+  [UserRound,"User Management","/user-management"],
+  [Settings,"Settings","/"]
+] as const;
 function MetricCard({label,value,hint,percent,color,icon:Icon}:{label:string;value:number;hint:string;percent:number;color:string;icon:typeof Box}) { const {t,locale,formatDate} = useI18n(); 
   return <Card className="metric-card">
     <div className="metric-top"><div className="metric-icon" style={{color,background:`${color}12`}}><Icon/></div>
@@ -133,7 +146,7 @@ export default function Home() { const {t,locale,formatDate} = useI18n();
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
       <SidebarHeader className="brand"><Link href="/"><Image src="/rescro-logo.png" alt="RESCRO" width={166} height={52} priority/></Link></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.filter(([,label])=>label==="Fabrika Talepleri"?(can("View Factory Requests")||user?.role==="Customer Service"):label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={t(label)}><Link href={href}><Icon/><span>{t(label)}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.filter(([,label])=>label==="Fabrika Talepleri"?(can("View Factory Requests")||user?.role==="Customer Service"):label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"||label==="Settings"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={t(label)}><Link href={href}><Icon/><span>{t(label)}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
       <SidebarFooter><button className="profile auth-profile" onClick={()=>void logout()} title={t("Log out")}><span><UserRound/></span><span><b>{user?.name ?? t("Account")}</b><small>{t(user?.role) ?? ""} {t(" · Log out")}</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
