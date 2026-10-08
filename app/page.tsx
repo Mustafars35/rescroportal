@@ -39,13 +39,15 @@ const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = 
   "Finished":{color:"#C55A8C",soft:"#ffffff",icon:CheckCircle2},
 };
 
+const visibleFlow = flow.filter(stage => stage !== "Finished" && stage !== "Packed");
+
 const flowLabels: Record<Stage, string> = {
   "Waiting for Mesh": "Mesh",
   "Cord & Eyelet": "Cord & Eyelet",
   "Waiting for Frame": "Frame",
   "Waiting for Assembly": "Assembly",
-  "Quality Control": "Quality Control",
-  "Waiting for Packing": "Packaging",
+  "Quality Control": "Quality",
+  "Waiting for Packing": "Packing",
   "Packed": "Packed",
   "Finished": "Finished",
 };
@@ -148,8 +150,8 @@ export default function Home() {
       </section>
       <Card className="flow-card">
         <div className="section-heading"><div><h2>PRODUCTION FLOW</h2><p>Track orders as they move through the production process</p></div><Activity/></div>
-        <div className="flow">{flow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${flowLabels[item]} orders`}>
-          <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<flow.length-1&&<i/>}</div><b>{index+1}</b><strong>{flowLabels[item]}</strong><small>{productionOrders.filter(order=>order.stage===item).length}</small>
+        <div className="flow">{visibleFlow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${flowLabels[item]} orders`}>
+          <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<visibleFlow.length-1&&<i/>}</div><b>{index+1}</b><strong>{flowLabels[item]}</strong><small>{productionOrders.filter(order=>order.stage===item).length}</small>
         </button>})}</div>
         
       </Card>
