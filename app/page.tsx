@@ -26,6 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { orders, stages as flow, type Stage } from "@/lib/orders";
 import { useProduction, ProductionNotice } from "@/components/production-provider";
 import { completedOrderDate, dashboardOrders } from "@/lib/production-model";
+import { completionEstimate } from "@/lib/completion-estimate";
 import { useAuth } from "@/components/auth-provider";
 
 const stageConfig:Record<Stage,{color:string;soft:string;icon:typeof Clock3}> = {
@@ -164,11 +165,11 @@ export default function Home() {
           <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all");setProductionOnly(false);setCompletedTodayOnly(false)}}><RefreshCw/> Reset</Button>
         </div>
         <div className="table-wrap"><Table>
-          <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all visible orders"/></TableHead><TableHead>Order Number</TableHead><TableHead>Customer</TableHead><TableHead>Order Date</TableHead><TableHead>Store</TableHead><TableHead>Status / Stage</TableHead><TableHead>Risk</TableHead><TableHead>Last Completed Stage</TableHead><TableHead>ETA</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all visible orders"/></TableHead><TableHead>Order Number</TableHead><TableHead>Customer</TableHead><TableHead>Order Date</TableHead><TableHead>Store</TableHead><TableHead>Status / Stage</TableHead><TableHead>Risk</TableHead><TableHead>Last Completed Stage</TableHead><TableHead>Tahmini Tamamlanma Süresi</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
           <TableBody>{filtered.map(order=><TableRow key={order.id} data-state={selected.includes(order.id)?"selected":undefined}>
             <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={`Select ${order.id}`}/></TableCell>
             <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell><TableCell><RiskBadge risk={order.risk}/></TableCell>
-            <TableCell><span className="last-stage" style={{"--dot":(order.stage==="Not Started"?"#707070":stageConfig[order.stage].color)} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{order.eta}</Badge></TableCell>
+            <TableCell><span className="last-stage" style={{"--dot":(order.stage==="Not Started"?"#707070":stageConfig[order.stage].color)} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{completionEstimate(order.date, order.stage === "Finished")}</Badge></TableCell>
             <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
         </Table>{filtered.length===0&&<div className="empty"><Search/><b>No orders found</b><span>Try changing your search or filters.</span></div>}</div>
