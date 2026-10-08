@@ -17,6 +17,7 @@ const links: readonly (readonly [typeof Gauge,string,string,Permission])[] = [
   [Truck,"Shipping","/shipping","View Shipping"],
   [Warehouse,"Stock Management","/stock-management","View Stock"],
   [BarChart3,"Production Overview","/production-overview","View Daily Production"],
+  [Activity,"Station Performance","/station-performance","View Daily Production"],
   [Activity,"Live Production","/live-production","View Daily Production"],
   [Factory,"Factory Control Center","/factory-control-center","View Order Pool"],
   [FileClock,"Audit Logs","/audit-logs","View Audit Logs"],

@@ -62,6 +62,7 @@ const nav = [
   [Truck,"Shipping","/shipping"],
   [Warehouse,"Stock Management","/stock-management"],
   [BarChart3,"Production Overview","/production-overview"],
+  [Wrench,"Station Performance","/station-performance"],
   [Gauge,"Live Production","/live-production"],
   [Factory,"Factory Control Center","/factory-control-center"],
   [FileClock,"Audit Logs","/audit-logs"],
@@ -146,7 +147,7 @@ export default function Home() { const {t,locale,formatDate} = useI18n();
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
       <SidebarHeader className="brand"><Link href="/"><Image src="/rescro-logo.png" alt="RESCRO" width={166} height={52} priority/></Link></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.filter(([,label])=>label==="Fabrika Talepleri"?(can("View Factory Requests")||user?.role==="Customer Service"):label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"||label==="Settings"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={t(label)}><Link href={href}><Icon/><span>{t(label)}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.filter(([,label])=>label==="Fabrika Talepleri"?(can("View Factory Requests")||user?.role==="Customer Service"):label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"||label==="Settings"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={t(label)}><Link href={href}><Icon/><span>{t(label)}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
       <SidebarFooter><button className="profile auth-profile" onClick={()=>void logout()} title={t("Log out")}><span><UserRound/></span><span><b>{user?.name ?? t("Account")}</b><small>{t(user?.role) ?? ""} {t(" · Log out")}</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
