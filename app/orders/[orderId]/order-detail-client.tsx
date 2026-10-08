@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Grid3X3, Hammer, Link2, PackageOpen, Ruler, ShieldCheck, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {instructionFor,instructionSize,finalMeasurement,type Instruction} from '@/lib/order-instructions';
 import type { PoolItem, PoolOrder } from "@/lib/order-pool";
 import { returnEntireOrderToPool } from "@/lib/release";
 import { useProduction, ProductionNotice } from "@/components/production-provider";
@@ -15,10 +16,6 @@ import { LegacyShell } from "@/components/legacy-shell";
 const stations = [["Mesh", Grid3X3], ["Cord & Eyelet", Link2], ["Frame", Ruler], ["Assembly", Hammer], ["Quality Control", ShieldCheck], ["Packaging", PackageOpen]] as const;
 type Station = (typeof stations)[number][0];
 const stationColor: Record<Station, string> = { Mesh: "#c00000", "Cord & Eyelet": "#ed7d31", Frame: "#c99a00", Assembly: "#70ad47", "Quality Control": "#5b9bd5", Packaging: "#7030a0" };
-
-type Instruction = { curtain:boolean; windowLike:boolean; pollen:boolean; width:number; height:number; piles:number; meshLength:string; cordLength:number; profileColor:string; thresholdColor:string; direction:string; closingDirection:string; montage:boolean; };
-
-function instructionFor(item:PoolItem,index:number):Instruction { const curtain=item.name.includes("Curtain"); const height=item.heightMm!; const width=item.widthMm!; return { curtain, windowLike:item.name.includes("Window")||curtain, pollen:item.name.includes("Pollen")||index%3===1, width, height, piles:45+index*4, meshLength:(height/10-4.2).toFixed(1), cordLength:Math.round((width+height)/10+20), profileColor:item.color, thresholdColor:index%2?"Black":item.color, direction:index%2?"Vertical":"Horizontal", closingDirection:index%2?"Right":"Left", montage:index%4===0 }; }
 
 function Field({label,value,emphasis=false}:{label:string;value:string;emphasis?:boolean}) {
   return <div className="detail-field" style={{minWidth:0}}>
@@ -39,10 +36,10 @@ const compactThreeColumnGrid = { display:"grid", gridTemplateColumns:"repeat(3, 
 
 function FrameRows({instruction}:{instruction:Instruction}) {
   const rows=[
-    ["Kanalsız Profil",`${instruction.meshLength} cm`,`2 ADET`,""],
-    ["Kanallı Profil",`${instruction.meshLength} cm`,`2 ADET`,""],
-    ["Kanat Profil",`${(instruction.height/10).toFixed(1)} cm`,`1 ADET`,""],
-    ["Eşik Profil",`${instruction.meshLength} cm`,`1 ADET`,instruction.thresholdColor===instruction.profileColor?"":instruction.thresholdColor],
+    ["Kanalsız Profil",instructionSize(instruction.meshLength,'cm'),`2 ADET`,""],
+    ["Kanallı Profil",instructionSize(instruction.meshLength,'cm'),`2 ADET`,""],
+    ["Kanat Profil",instructionSize(instruction.height!==null?(instruction.height/10).toFixed(1):null,'cm'),`1 ADET`,""],
+    ["Eşik Profil",instructionSize(instruction.meshLength,'cm'),`1 ADET`,instruction.thresholdColor===instruction.profileColor?"":instruction.thresholdColor],
   ];
   const grid={display:"grid",gridTemplateColumns:"1.55fr 1fr .82fr .8fr",gap:12,alignItems:"center",padding:"10px 14px"} as const;
   return <div style={{border:"1px solid #e3e9ef",borderRadius:8,overflow:"hidden"}}>
@@ -53,13 +50,14 @@ function FrameRows({instruction}:{instruction:Instruction}) {
   </div>;
 }
 
-export function Instructions({item,index,onlyStation}:{item:PoolItem;index:number;onlyStation?:WorkStation}) { if(!item.widthMm||!item.heightMm)return <p className="production-notice">Üretim ölçüleri kayıtlı değil. Yetkili kullanıcı siparişin gerçek ölçülerini girmelidir.</p>; const data=instructionFor(item,index); const meshType=data.pollen?"POLLEN":"STANDARD"; return <div style={{display:"grid",gap:10,marginTop:12}}>
-  {(!onlyStation||onlyStation==="Mesh")&&<StationCard title="MESH"><div style={compactFourColumnGrid}><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="Tül Türü" value={meshType} emphasis/></div><Field label="Pile Sayısı" value={String(data.piles)}/><Field label="Tül Boyu" value={`${data.meshLength} cm`}/><Field label="İp Boyu" value={`${data.cordLength} cm`}/>{data.curtain&&<><Field label="Perde Türü" value="Perdeli Sineklik"/><Field label="Perde Rengi" value={item.color}/></>}</div></StationCard>}
-  {(!onlyStation||onlyStation==="Cord & Eyelet")&&<StationCard title="CORD & EYELET"><div style={compactFourColumnGrid}><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="İp Boyu" value={`${data.cordLength} cm`} emphasis/></div><Field label="Tül Türü" value={meshType}/><Field label="Pile Sayısı" value={String(data.piles)}/><Field label="Tül Boyu" value={`${data.meshLength} cm`}/></div></StationCard>}
+export function Instructions({item,index,onlyStation}:{item:PoolItem;index:number;onlyStation?:WorkStation}) { const data=instructionFor(item,index); const meshType=data.pollen?"POLLEN":"STANDARD"; return <div style={{display:"grid",gap:10,marginTop:12}}>
+  {data.exampleMeasurements&&<p className="production-notice">Örnek sipariş · Eski prototip ölçüleri</p>}
+  {(!onlyStation||onlyStation==="Mesh")&&<StationCard title="MESH"><div style={compactFourColumnGrid}><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="Tül Türü" value={meshType} emphasis/></div><Field label="Pile Sayısı" value={String(data.piles)}/><Field label="Tül Boyu" value={instructionSize(data.meshLength,'cm')}/><Field label="İp Boyu" value={instructionSize(data.cordLength,'cm')}/>{data.curtain&&<><Field label="Perde Türü" value="Perdeli Sineklik"/><Field label="Perde Rengi" value={item.color}/></>}</div></StationCard>}
+  {(!onlyStation||onlyStation==="Cord & Eyelet")&&<StationCard title="CORD & EYELET"><div style={compactFourColumnGrid}><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="İp Boyu" value={instructionSize(data.cordLength,'cm')} emphasis/></div><Field label="Tül Türü" value={meshType}/><Field label="Pile Sayısı" value={String(data.piles)}/><Field label="Tül Boyu" value={instructionSize(data.meshLength,'cm')}/></div></StationCard>}
   {(!onlyStation||onlyStation==="Frame")&&<StationCard title="FRAME"><div style={{marginBottom:12}}><Field label="Profil Rengi" value={data.profileColor} emphasis/></div><FrameRows instruction={data}/></StationCard>}
   {(!onlyStation||onlyStation==="Assembly")&&<StationCard title="ASSEMBLY"><div style={compactFourColumnGrid}><Field label="Ürün Rengi" value={item.color}/><Field label="Kapanma Yönü" value={data.closingDirection}/><Field label="Kapanma Türü" value="Magnetic"/><Field label="Tül Türü" value={meshType}/><Field label="Takoz / Kapak Rengi" value={data.profileColor}/><Field label="Eşik Türü" value="Standard"/>{data.windowLike&&<Field label="Ürün Yönü" value={data.direction}/>}</div></StationCard>}
-  {(!onlyStation||onlyStation==="Quality Control")&&<StationCard title="QUALITY CONTROL"><div style={compactThreeColumnGrid}><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="Final Ölçü" value={`${data.width} × ${data.height} mm`} emphasis/></div><Field label="Renk" value={item.color}/><Field label="Tül Türü" value={meshType}/><Field label="Kapanma Türü" value="Magnetic"/><Field label="Kapanma Yönü" value={data.closingDirection}/>{data.windowLike&&<Field label="Ürün Yönü" value={data.direction}/>}</div></StationCard>}
-  {(!onlyStation||onlyStation==="Packaging")&&<StationCard title="PACKAGING"><div style={compactThreeColumnGrid}><Field label="Ölçü" value={`${data.width} × ${data.height} mm`} emphasis/><Field label="Renk" value={item.color}/><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="Montaj" value={data.montage?"EVET – MONTAJ HİZMETİ VAR":"HAYIR – MÜŞTERİ KENDİ MONTAJ EDECEK"} emphasis/></div></div></StationCard>}
+  {(!onlyStation||onlyStation==="Quality Control")&&<StationCard title="QUALITY CONTROL"><div style={compactThreeColumnGrid}><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="Final Ölçü" value={finalMeasurement(data)} emphasis/></div><Field label="Renk" value={item.color}/><Field label="Tül Türü" value={meshType}/><Field label="Kapanma Türü" value="Magnetic"/><Field label="Kapanma Yönü" value={data.closingDirection}/>{data.windowLike&&<Field label="Ürün Yönü" value={data.direction}/>}</div></StationCard>}
+  {(!onlyStation||onlyStation==="Packaging")&&<StationCard title="PACKAGING"><div style={compactThreeColumnGrid}><Field label="Ölçü" value={finalMeasurement(data)} emphasis/><Field label="Renk" value={item.color}/><div style={{borderLeft:"3px solid #374151",paddingLeft:10}}><Field label="Montaj" value={data.montage?"EVET – MONTAJ HİZMETİ VAR":"HAYIR – MÜŞTERİ KENDİ MONTAJ EDECEK"} emphasis/></div></div></StationCard>}
 </div>; }
 
 function Flow({production,editableStations,busy,onComplete,admin=false}:{admin?:boolean;production?:ProductionItem;editableStations:WorkStation[];busy:boolean;onComplete:(station:WorkStation,status:"complete"|"pending")=>void}) {
