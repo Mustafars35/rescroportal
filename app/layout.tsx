@@ -9,6 +9,8 @@ import "./pool-flow-fix.css";
 import { ProductionProvider } from "@/components/production-provider";
 import "./daily-production.css";
 import "./factory-requests.css";
+import { I18nProvider } from "@/components/i18n-provider";
+import "./i18n.css";
 import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
@@ -27,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased"><AuthProvider><ProductionProvider>{children}</ProductionProvider></AuthProvider></body>
+      <body className="antialiased"><AuthProvider><I18nProvider><ProductionProvider>{children}</ProductionProvider></I18nProvider></AuthProvider></body>
     </html>
   );
 }

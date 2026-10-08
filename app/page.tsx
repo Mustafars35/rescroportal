@@ -1,4 +1,5 @@
 "use client";
+import {useI18n,LanguageSelector} from "@/components/i18n-provider";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -54,33 +55,33 @@ const flowLabels: Record<Stage, string> = {
 };
 
 const nav = [[LayoutDashboard,"Dashboard","/"],[Factory,"Fabrika Talepleri","/factory-requests"],[Factory,"Daily Production","/daily-production"],[Gauge,"Live Production","/live-production"],[BarChart3,"Production Overview","/production-overview"],[Activity,"Delayed & Risk","/delayed-risk"],[Wrench,"Station Performance","/station-performance"],[Warehouse,"Stock Management","/stock-management"],[Truck,"Shipping","/shipping"],[Factory,"Factory Control Center","/factory-control-center"],[FileClock,"Audit Logs","/audit-logs"],[UserRound,"User Management","/user-management"],[Settings,"Settings","/"]] as const;
-function MetricCard({label,value,hint,percent,color,icon:Icon}:{label:string;value:number;hint:string;percent:number;color:string;icon:typeof Box}) {
+function MetricCard({label,value,hint,percent,color,icon:Icon}:{label:string;value:number;hint:string;percent:number;color:string;icon:typeof Box}) { const {t,locale,formatDate} = useI18n(); 
   return <Card className="metric-card">
     <div className="metric-top"><div className="metric-icon" style={{color,background:`${color}12`}}><Icon/></div>
-      <div><p>{label}</p><strong style={{color}}>{value.toLocaleString("en-US")}</strong><span>{hint}</span></div>
+      <div><p>{t(label)}</p><strong style={{color}}>{value.toLocaleString(locale)}</strong><span>{t(hint)}</span></div>
     </div>
     <div className="metric-progress"><Progress value={percent} style={{color}}/><b>{percent.toFixed(1)}%</b></div>
   </Card>;
 }
 
-function StageBadge({stage}:{stage:Stage|"Not Started"}) {
-  if(stage==="Not Started")return <Badge variant="secondary" className="stage-badge" style={{color:"#374151",background:"#f1f5f9"}}><Clock3/> Not Started</Badge>;
+function StageBadge({stage}:{stage:Stage|"Not Started"}) { const {t,locale,formatDate} = useI18n(); 
+  if(stage==="Not Started")return <Badge variant="secondary" className="stage-badge" style={{color:"#374151",background:"#f1f5f9"}}><Clock3/> {t(" Not Started")}</Badge>;
   const config=stageConfig[stage]; const Icon=config.icon;
-  return <Badge className="stage-badge" style={{color:config.color,background:config.soft}}><Icon/>{stage}</Badge>;
+  return <Badge className="stage-badge" style={{color:config.color,background:config.soft}}><Icon/>{t(stage)}</Badge>;
 }
 
-function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { return <Badge className={`risk-badge ${risk.toLowerCase()}`}><i/>{risk}</Badge>; }
+function RiskBadge({risk}:{risk:"Normal"|"Risk"|"Delayed"}) { const {t,locale,formatDate} = useI18n();  return <Badge className={`risk-badge ${risk.toLowerCase()}`}><i/>{t(risk)}</Badge>; }
 
-export default function Home() {
+export default function Home() { const {t,locale,formatDate} = useI18n(); 
   const {user,can,logout}=useAuth();
   const {snapshot}=useProduction(); const [completedTodayOnly,setCompletedTodayOnly]=useState(false);
   const [query,setQuery]=useState(""); const [store,setStore]=useState("all"); const [stage,setStage]=useState("all"); const [productionOnly,setProductionOnly]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const productionOrders=useMemo(()=>dashboardOrders(snapshot),[snapshot]);
   const filtered=useMemo(()=>productionOrders.filter(o=>
-    `${o.id} ${o.customer} ${o.stage}`.toLowerCase().includes(query.toLowerCase()) &&
+    `${o.id} ${o.customer} ${o.stage} ${t(o.stage)}`.toLowerCase().includes(query.toLowerCase()) &&
     (store==="all"||o.store===store) && (stage==="all"||o.stage===stage) && (!productionOnly || (o.stage!=="Finished"&&o.stage!=="Not Started")) && (!completedTodayOnly || completedOrderDate(snapshot.items.filter(item=>item.orderId===o.id))===new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Istanbul",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()))
-  ),[query,store,stage,productionOnly,productionOrders,snapshot,completedTodayOnly]);
+  ),[query,store,stage,productionOnly,productionOrders,snapshot,completedTodayOnly,t]);
   const finished=productionOrders.filter(o=>o.stage==="Finished").length;
   const notStarted=productionOrders.filter(o=>o.stage==="Not Started").length;
   const production=productionOrders.length-finished-notStarted; const pct=(v:number)=>productionOrders.length?v/productionOrders.length*100:0;
@@ -132,48 +133,48 @@ export default function Home() {
     <Sidebar collapsible="offcanvas" className="rescro-sidebar">
       <SidebarHeader className="brand"><Link href="/"><Image src="/rescro-logo.png" alt="RESCRO" width={166} height={52} priority/></Link></SidebarHeader>
       <SidebarContent><SidebarGroup><SidebarGroupContent><SidebarMenu>
-        {nav.filter(([,label])=>label==="Fabrika Talepleri"?(can("View Factory Requests")||user?.role==="Customer Service"):label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={label}><Link href={href}><Icon/><span>{label}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
+        {nav.filter(([,label])=>label==="Fabrika Talepleri"?(can("View Factory Requests")||user?.role==="Customer Service"):label==="Dashboard"?can("View Dashboard"):label==="Daily Production"||label==="Live Production"||label==="Production Overview"||label==="Delayed & Risk"||label==="Station Performance"?can("View Daily Production"):label==="Stock Management"?can("View Stock"):label==="Shipping"?can("View Shipping"):label==="Factory Control Center"?user?.role==="Admin":label==="Audit Logs"?can("View Audit Logs"):label==="User Management"?can("Manage Users & Roles"):false).map(([Icon,label,href])=><SidebarMenuItem key={label}><SidebarMenuButton asChild isActive={label==="Dashboard"} tooltip={t(label)}><Link href={href}><Icon/><span>{t(label)}</span></Link></SidebarMenuButton></SidebarMenuItem>)}
       </SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
-      <SidebarFooter><button className="profile auth-profile" onClick={()=>void logout()} title="Log out"><span><UserRound/></span><span><b>{user?.name??"Account"}</b><small>{user?.role??""} · Log out</small></span><ChevronRight/></button></SidebarFooter>
+      <SidebarFooter><button className="profile auth-profile" onClick={()=>void logout()} title={t("Log out")}><span><UserRound/></span><span><b>{user?.name ?? t("Account")}</b><small>{t(user?.role) ?? ""} {t(" · Log out")}</small></span><ChevronRight/></button></SidebarFooter>
     </Sidebar>
 
     <SidebarInset><main className="portal-shell">
       <header className="topbar mb-6">
-        <div className="title-wrap"><SidebarTrigger className="mobile-trigger"><Menu/></SidebarTrigger><div><h1>Orders Overview</h1></div></div>
-        <div className="top-actions"><Button variant="outline"><RefreshCw/> Sync Store</Button><Button variant="outline"><FileClock/> Audit Logs</Button>{user?.role==="Admin"&&<Button className="create"><Plus/> Create Order</Button>}<Button variant="outline" size="icon" className="round"><UserRound/></Button></div>
+        <div className="title-wrap"><SidebarTrigger className="mobile-trigger"><Menu/></SidebarTrigger><div><h1>{t("Orders Overview")}</h1></div></div>
+        <div className="top-actions"><Button variant="outline"><RefreshCw/> {t(" Sync Store")}</Button><Button variant="outline"><FileClock/> {t(" Audit Logs")}</Button>{user?.role==="Admin"&&<Button className="create"><Plus/> {t(" Create Order")}</Button>}<LanguageSelector/><Button variant="outline" size="icon" className="round"><UserRound/></Button></div>
       </header>
-      {selected.length>0&&<section className="export-row"><span className="selected-count">{selected.length} order{selected.length>1?"s":""} selected</span></section>}
+      {selected.length>0&&<section className="export-row"><span className="selected-count">{selected.length} {t(" order")}{selected.length>1 ? t("s") : ""} {t(" selected")}</span></section>}
       <section className="metrics">
-        <MetricCard label="TOTAL ORDERS" value={productionOrders.length} hint="All orders in system" percent={pct(finished)} color="#161616" icon={Box}/>
-        <MetricCard label="NOT STARTED ORDERS" value={notStarted} hint="Waiting in Order Pool" percent={pct(notStarted)} color="#353535" icon={Clock3}/>
-        <MetricCard label="ORDERS IN PRODUCTION" value={production} hint="Including Packed" percent={pct(production)} color="#515151" icon={CircleGauge}/>
-        <MetricCard label="FINISHED ORDERS" value={finished} hint="Production completed" percent={pct(finished)} color="#707070" icon={CheckCircle2}/>
+        <MetricCard label={t("TOTAL ORDERS")} value={productionOrders.length} hint={t("All orders in system")} percent={pct(finished)} color="#161616" icon={Box}/>
+        <MetricCard label={t("NOT STARTED ORDERS")} value={notStarted} hint={t("Waiting in Order Pool")} percent={pct(notStarted)} color="#353535" icon={Clock3}/>
+        <MetricCard label={t("ORDERS IN PRODUCTION")} value={production} hint={t("Including Packed")} percent={pct(production)} color="#515151" icon={CircleGauge}/>
+        <MetricCard label={t("FINISHED ORDERS")} value={finished} hint={t("Production completed")} percent={pct(finished)} color="#707070" icon={CheckCircle2}/>
       </section>
       <Card className="flow-card">
-        <div className="section-heading"><div><h2>PRODUCTION FLOW</h2><p>Track orders as they move through the production process</p></div><Activity/></div>
-        <div className="flow">{visibleFlow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={`Show ${flowLabels[item]} orders`}>
-          <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<visibleFlow.length-1&&<i/>}</div><b>{index+1}</b><strong>{flowLabels[item]}</strong><small>{productionOrders.filter(order=>order.stage===item).length}</small>
+        <div className="section-heading"><div><h2>{t("PRODUCTION FLOW")}</h2><p>{t("Track orders as they move through the production process")}</p></div><Activity/></div>
+        <div className="flow">{visibleFlow.map((item,index)=>{const config=stageConfig[item];const Icon=config.icon;return <button type="button" className={`flow-step${stage===item?" active":""}`} key={item} onClick={()=>{setStage(item);requestAnimationFrame(()=>document.getElementById("orders-table")?.scrollIntoView({behavior:"smooth",block:"start"}))}} aria-label={t("Show {0} orders", {0: flowLabels[item]})}>
+          <div className="flow-visual"><span style={{color:config.color,background:config.soft}}><Icon/></span>{index<visibleFlow.length-1&&<i/>}</div><b>{index+1}</b><strong>{t(flowLabels[item])}</strong><small>{productionOrders.filter(order=>order.stage===item).length}</small>
         </button>})}</div>
         
       </Card>
       <ProductionNotice/><Card className="orders-card" id="orders-table">
         <div className="filters">
-          <label><span>Search Order</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by order, customer or status..."/></div></label>
-          <label><span>Store</span><Select value={store} onValueChange={setStore}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All stores</SelectItem>{[".nl",".de",".fr",".dk",".uk",".es",".pl"].map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
-          <label><span>Status</span><Select value={stage} onValueChange={setStage}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="Not Started">Not Started</SelectItem>{flow.map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label>
-          <Button variant="outline" className="filter-button"><Filter/> Filters</Button>
-          <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all");setProductionOnly(false);setCompletedTodayOnly(false)}}><RefreshCw/> Reset</Button>
+          <label><span>{t("Search Order")}</span><div className="search"><Search/><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("Search by order, customer or status...")}/></div></label>
+          <label><span>{t("Store")}</span><Select value={store} onValueChange={setStore}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">{t("All stores")}</SelectItem>{[".nl",".de",".fr",".dk",".uk",".es",".pl"].map(s=><SelectItem key={s} value={s}>{t(s)}</SelectItem>)}</SelectContent></Select></label>
+          <label><span>{t("Status")}</span><Select value={stage} onValueChange={setStage}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">{t("All statuses")}</SelectItem><SelectItem value="Not Started">{t("Not Started")}</SelectItem>{flow.map(s=><SelectItem key={s} value={s}>{t(s)}</SelectItem>)}</SelectContent></Select></label>
+          <Button variant="outline" className="filter-button"><Filter/> {t(" Filters")}</Button>
+          <Button variant="ghost" onClick={()=>{setQuery("");setStore("all");setStage("all");setProductionOnly(false);setCompletedTodayOnly(false)}}><RefreshCw/> {t(" Reset")}</Button>
         </div>
         <div className="table-wrap"><Table>
-          <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all visible orders"/></TableHead><TableHead>Order Number</TableHead><TableHead>Customer</TableHead><TableHead>Order Date</TableHead><TableHead>Store</TableHead><TableHead>Status / Stage</TableHead><TableHead>Risk</TableHead><TableHead>Last Completed Stage</TableHead><TableHead>Tahmini Tamamlanma Süresi</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label={t("Select all visible orders")}/></TableHead><TableHead>{t("Order Number")}</TableHead><TableHead>{t("Customer")}</TableHead><TableHead>{t("Order Date")}</TableHead><TableHead>{t("Store")}</TableHead><TableHead>{t("Status / Stage")}</TableHead><TableHead>{t("Risk")}</TableHead><TableHead>{t("Last Completed Stage")}</TableHead><TableHead>{t("Tahmini Tamamlanma Süresi")}</TableHead><TableHead className="text-right">{t("Actions")}</TableHead></TableRow></TableHeader>
           <TableBody>{filtered.map(order=><TableRow key={order.id} data-state={selected.includes(order.id)?"selected":undefined}>
-            <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={`Select ${order.id}`}/></TableCell>
-            <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{order.date}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell><TableCell><RiskBadge risk={order.risk}/></TableCell>
-            <TableCell><span className="last-stage" style={{"--dot":(order.stage==="Not Started"?"#707070":stageConfig[order.stage].color)} as React.CSSProperties}>{order.last}</span></TableCell><TableCell><Badge variant="outline" className="eta">{completionEstimate(order.date, order.stage === "Finished")}</Badge></TableCell>
-            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> View Order</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
+            <TableCell><Checkbox checked={selected.includes(order.id)} onCheckedChange={()=>setSelected(current=>current.includes(order.id)?current.filter(id=>id!==order.id):[...current,order.id])} aria-label={t("Select {0}", {0: order.id})}/></TableCell>
+            <TableCell className="order-id">{order.id}</TableCell><TableCell>{order.customer}</TableCell><TableCell>{formatDate(order.date)}</TableCell><TableCell><Badge variant="secondary">{order.store}</Badge></TableCell><TableCell><StageBadge stage={order.stage}/></TableCell><TableCell><RiskBadge risk={order.risk}/></TableCell>
+            <TableCell><span className="last-stage" style={{"--dot":(order.stage==="Not Started"?"#707070":stageConfig[order.stage].color)} as React.CSSProperties}>{t(order.last)}</span></TableCell><TableCell><Badge variant="outline" className="eta">{t(completionEstimate(order.date, order.stage === "Finished"))}</Badge></TableCell>
+            <TableCell><div className="row-actions"><Link className="view-order-link" href={`/orders/${encodeURIComponent(order.id)}`}><Eye/> {t(" View Order")}</Link><Button variant="ghost" size="icon"><MoreHorizontal/></Button></div></TableCell>
           </TableRow>)}</TableBody>
-        </Table>{filtered.length===0&&<div className="empty"><Search/><b>No orders found</b><span>Try changing your search or filters.</span></div>}</div>
-        <footer className="pagination"><span>Showing {filtered.length} of {productionOrders.length} orders</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>
+        </Table>{filtered.length===0&&<div className="empty"><Search/><b>{t("No orders found")}</b><span>{t("Try changing your search or filters.")}</span></div>}</div>
+        <footer className="pagination"><span>{t("Showing ")}{filtered.length} {t(" of ")}{productionOrders.length} {t(" orders")}</span><div><Button variant="outline" size="icon"><ChevronLeft/></Button><Button className="page-active">1</Button><Button variant="outline">2</Button><Button variant="outline" size="icon"><ChevronRight/></Button></div></footer>
       </Card>
     </main></SidebarInset>
 

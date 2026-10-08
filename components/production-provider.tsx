@@ -1,11 +1,12 @@
 "use client";
+import {useI18n} from "@/components/i18n-provider";
 import { createContext,useContext,useEffect,useState,useCallback,useRef } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { emptyProduction,type ProductionSnapshot,type WorkStation } from "@/lib/production-model";
 import { setProductionSnapshot } from "@/lib/release";
 type ProductionContext={snapshot:ProductionSnapshot;loading:boolean;error:string;refresh:(force?:boolean)=>Promise<void>;complete:(itemId:string,station:WorkStation)=>Promise<void>};
 const Context=createContext<ProductionContext|null>(null);
-export function ProductionProvider({children}:{children:React.ReactNode}){
+export function ProductionProvider({children}:{children:React.ReactNode}){ const {t,locale} = useI18n(); 
   const {user}=useAuth();const [snapshot,setSnapshot]=useState(emptyProduction);const [loading,setLoading]=useState(true);const [error,setError]=useState("");const pending=useRef<Promise<void>|null>(null);const generation=useRef(0);
   const refresh=useCallback(async(force=false)=>{
     if(!user)return;if(pending.current){await pending.current;if(!force)return;}
@@ -26,4 +27,4 @@ export function ProductionProvider({children}:{children:React.ReactNode}){
   return <Context.Provider value={{snapshot,loading,error,refresh,complete}}>{children}</Context.Provider>;
 }
 export function useProduction(){const value=useContext(Context);if(!value)throw new Error("Missing production provider");return value;}
-export function ProductionNotice(){const {error,loading,refresh}=useProduction();if(!error&&!loading)return null;return <div className="production-service-notice" role={error?"alert":"status"}>{error||"Loading shared production records…"}{error&&<button onClick={()=>void refresh()}>Retry</button>}</div>;}
+export function ProductionNotice(){ const {t,locale} = useI18n(); const {error,loading,refresh}=useProduction();if(!error&&!loading)return null;return <div className="production-service-notice" role={error?"alert":"status"}>{t(error) || t("Loading shared production records…")}{error&&<button onClick={()=>void refresh()}>{t("Retry")}</button>}</div>;}
